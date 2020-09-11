@@ -8,9 +8,11 @@ import (
 )
 
 var requestOnce = &sync.Once{}
+var clientOnce = &sync.Once{}
 var request *http.Request
+var client *http.Client
 
-func NewHttpClient(method, urlStr string, buff io.Reader) (*http.Request) {
+func GetHttpRequestObj(method, urlStr string, buff io.Reader) *http.Request {
 	requestOnce.Do(func() {
 		if request == nil {
 			cl, err := http.NewRequest(method, urlStr, buff)
@@ -22,4 +24,13 @@ func NewHttpClient(method, urlStr string, buff io.Reader) (*http.Request) {
 		}
 	})
 	return request
+}
+
+func GetHttpClient() *http.Client {
+	clientOnce.Do(func() {
+		if client == nil {
+			client = http.DefaultClient
+		}
+	})
+	return client
 }

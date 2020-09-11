@@ -74,7 +74,7 @@ func (a *LoadTest) Send(method string, headers map[string]string, urlStr, worker
 	tn := time.Now()
 	var bt []byte
 	bd := bytes.NewBuffer(bt)
-	cl := NewHttpClient(method, urlStr, bd)
+	cl := GetHttpRequestObj(method, urlStr, bd)
 	if cl == nil {
 		return
 	}
@@ -84,9 +84,10 @@ func (a *LoadTest) Send(method string, headers map[string]string, urlStr, worker
 		}
 	}
 
-	resp, err := http.DefaultClient.Do(cl)
+	resp, err := GetHttpClient().Do(cl)
 	if err != nil || resp == nil {
-		log.Fatalln("got error", "worker", workerName, "error", err)
+		log.Println("#skip got error:", workerName, err)
+		return
 	}
 
 	var cacheUsed = false
