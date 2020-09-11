@@ -7,8 +7,19 @@ import (
 	"os"
 )
 
+var Version = ""
+
 func main() {
 	cp := dyanmic_params.NewDynamicParams(dyanmic_params.SrcNameArgs, os.Args)
+	if cp.Has("help") {
+		PrintHelp()
+		os.Exit(0)
+		return
+	} else if cp.Has("version") {
+		PrintVersion()
+		os.Exit(0)
+		return
+	}
 	httpMethod, _ := cp.GetAsQuotedString(common.FieldMethod)
 	urlVal, _ := cp.GetAsQuotedString(common.FieldUrl)
 	workerCount, _ := cp.GetStringAsInt(common.FieldWorkerCount)

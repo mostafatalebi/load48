@@ -14,7 +14,15 @@ you to send your custom header in the API's response. It must contain a value
 in duration format, for example: `1ms`
 
 
-An example request:
+#### Usage
+You can download binaries from releases section, or you can build it yourself:
+`make build` this command builds the source
+code only to the latest tag defined in tags. If you want to build latest commit,
+use `make buildlatest`
+
+#### Example Request
+The following example uses all possible parameters. For special values such as
+URL, don't forget to wrap them in quotation marks to avoid any break.
 ```shell script
 --url=http://example.com/endpoint?token=something
 --method GET
