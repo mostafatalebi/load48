@@ -2,31 +2,34 @@ package main
 
 import (
 	"github.com/mostafatalebi/dynamic-params"
-	"github.com/mostafatalebi/loadtest/pkg"
+	"github.com/mostafatalebi/loadtest/pkg/common"
+	"github.com/mostafatalebi/loadtest/pkg/core"
 	"os"
 )
 
 func main() {
 	cp := dyanmic_params.NewDynamicParams(dyanmic_params.SrcNameArgs, os.Args)
-	httpMethod, _ := cp.GetAsString("method")
-	urlVal, _ := cp.GetAsString("url")
-	workerCount, _ := cp.GetStringAsInt("worker-count")
-	perWorker, _ := cp.GetStringAsInt("per-worker")
-	execDebugHeaderName, _ := cp.GetAsString("exec-debug-header-name")
-	cacheUsageHeaderName, _ := cp.GetAsString("cache-usage-header-name")
-	lt := pkg.NewAdGetLoadTest()
+	httpMethod, _ := cp.GetAsQuotedString(common.FieldMethod)
+	urlVal, _ := cp.GetAsQuotedString(common.FieldUrl)
+	workerCount, _ := cp.GetStringAsInt(common.FieldWorkerCount)
+	perWorker, _ := cp.GetStringAsInt(common.FieldPerWorker)
+	execDebugHeaderName, _ := cp.GetAsString(common.FieldExecDurationHeaderName)
+	cacheUsageHeaderName, _ := cp.GetAsString(common.FieldCacheUsageHeaderName)
+	perWorkerStats, _ := cp.GetStringAsBool(common.FieldPerWorkerStats)
+	lt := core.NewAdGetLoadTest()
 	lt.Url = urlVal
 	lt.Method = httpMethod
 	lt.Headers = lt.GetHeadersFromArgs(os.Args)
 	lt.ConcurrentWorkers = workerCount
 	lt.PerWorker = perWorker
-	if cp.Has("exec-debug-header-name") {
+	lt.PerWorkerStats = perWorkerStats
+	if cp.Has(common.FieldExecDurationHeaderName) {
 		lt.ExecDurationFromHeader = true
 		lt.ExecDurationHeaderName = execDebugHeaderName
 	}
-	if cp.Has("cache-usage-header-name") {
+	if cp.Has(common.FieldCacheUsageHeaderName) {
 		lt.CacheUsageHeaderName = cacheUsageHeaderName
 	}
 	lt.Process()
-	lt.PrintStats(true)
+	lt.PrintStats()
 }

@@ -16,6 +16,7 @@ in duration format, for example: `1ms`
 
 An example request:
 ```shell script
+--url=http://example.com/endpoint?token=something
 --method GET
 --worker-count=1
 --per-worker=50
@@ -24,7 +25,7 @@ An example request:
 --header-Authorization=someValue
 --exec-duration-header-name=App-Exec-Duration
 --cache-usage-header-name=Is-Cache-Used
---url=http://example.com/endpoint?token=something
+--per-worker-stats=1
 ```
 
 #### List of Params
@@ -45,3 +46,6 @@ must be in duration format (`1s`, `256ms` etc.). Valid units are Valid time unit
 
 `cache-usage-header-name` `string` `optional` A response header which holds a "0" or "1" value
 and determines if app has served this request from cache
+
+`--per-worker-stats` `bool` `optional` if set to true, then per worker stats are 
+also printed.
