@@ -1,4 +1,4 @@
-module loadtest
+module github.com/mostafatalebi/loadtest
 
 go 1.14
 

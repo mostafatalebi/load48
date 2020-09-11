@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/mostafatalebi/dynamic-params"
-	"loadtest/pkg"
+	"github.com/mostafatalebi/loadtest/pkg"
 	"os"
 )
 
