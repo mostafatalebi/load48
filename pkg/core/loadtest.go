@@ -59,8 +59,19 @@ func (a *LoadTest) Process() {
 	for i := 0; i < a.ConcurrentWorkers; i++ {
 		wg.Add(1)
 		go func(workerName string) {
+			var bt []byte
+			bd := bytes.NewBuffer(bt)
+			cl := GetHttpRequestObj(a.Method, a.Url, bd)
+			if cl == nil {
+				return
+			}
+			if a.Headers != nil && len(a.Headers) > 0 {
+				for hk, hv := range a.Headers {
+					cl.Header.Set(hk, hv)
+				}
+			}
 			for j := 0; j < a.PerWorker; j++ {
-				a.Send(a.Method, a.Headers, a.Url, workerName)
+				a.Send(cl, workerName)
 			}
 			wg.Done()
 		}(fmt.Sprintf("Worker #%v", i))
@@ -70,25 +81,14 @@ func (a *LoadTest) Process() {
 
 // Prepares a client and sends the actual request, and manages all variables
 // needed for stats
-func (a *LoadTest) Send(method string, headers map[string]string, urlStr, workerName string) {
+func (a *LoadTest) Send(c *http.Request, workerName string) {
 	tn := time.Now()
-	var bt []byte
-	bd := bytes.NewBuffer(bt)
-	cl := GetHttpRequestObj(method, urlStr, bd)
-	if cl == nil {
-		return
-	}
-	if headers != nil && len(headers) > 0 {
-		for hk, hv := range headers {
-			cl.Header.Set(hk, hv)
-		}
-	}
-
-	resp, err := GetHttpClient().Do(cl)
+	resp, err := GetHttpClient().Do(c)
 	if err != nil || resp == nil {
 		log.Println("#skip got error:", workerName, err)
 		return
 	}
+	defer resp.Body.Close()
 
 	var cacheUsed = false
 	if a.CacheUsageHeaderName != "" {

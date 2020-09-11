@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"sync"
+	"time"
 )
 
 var requestOnce = &sync.Once{}
@@ -31,6 +32,7 @@ func GetHttpClient() *http.Client {
 		if client == nil {
 			client = http.DefaultClient
 		}
+		client.Timeout = time.Second * 1
 	})
 	return client
 }
