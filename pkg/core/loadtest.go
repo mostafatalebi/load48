@@ -55,9 +55,9 @@ func (a *LoadTest) Process() {
 		return
 	}
 	wg := &sync.WaitGroup{}
+	fmt.Printf("starting all workers (%v)...\n", a.ConcurrentWorkers)
 	for i := 0; i < a.ConcurrentWorkers; i++ {
 		wg.Add(1)
-		fmt.Println("starting worker...")
 		go func(workerName string) {
 			for j := 0; j < a.PerWorker; j++ {
 				a.Send(a.Method, a.Headers, a.Url, workerName)
@@ -68,12 +68,16 @@ func (a *LoadTest) Process() {
 	wg.Wait()
 }
 
+// Prepares a client and sends the actual request, and manages all variables
+// needed for stats
 func (a *LoadTest) Send(method string, headers map[string]string, urlStr, workerName string) {
 	tn := time.Now()
-	bf := []byte{}
-	bd := bytes.NewBuffer(bf)
-	cl, _ := http.NewRequest(method, urlStr, bd)
-
+	var bt []byte
+	bd := bytes.NewBuffer(bt)
+	cl := NewHttpClient(method, urlStr, bd)
+	if cl == nil {
+		return
+	}
 	if headers != nil && len(headers) > 0 {
 		for hk, hv := range headers {
 			cl.Header.Set(hk, hv)
