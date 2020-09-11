@@ -17,8 +17,8 @@ in duration format, for example: `1ms`
 #### Usage
 You can download binaries from releases section, or you can build it yourself:
 `make build` this command builds the source
-code only to the latest tag defined in tags. If you want to build latest commit,
-use `make buildlatest`
+code and sets version info of last tag. Use `make buildlatest` to set version info
+of last commit.
 
 #### Example Request
 The following example uses all possible parameters. For special values such as

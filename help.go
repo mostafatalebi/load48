@@ -27,7 +27,7 @@ func PrintHelp() {
 
 func PrintVersion() {
 	PrintAuthorInformation()
-	fmt.Sprintln("Version: %v", Version)
+	fmt.Printf("Version: %v\n", Version)
 }
 
 func PrintAuthorInformation() {

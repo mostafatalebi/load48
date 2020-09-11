@@ -10,16 +10,8 @@ import (
 var Version = ""
 
 func main() {
+	CheckCommandEntry()
 	cp := dyanmic_params.NewDynamicParams(dyanmic_params.SrcNameArgs, os.Args)
-	if cp.Has("help") {
-		PrintHelp()
-		os.Exit(0)
-		return
-	} else if cp.Has("version") {
-		PrintVersion()
-		os.Exit(0)
-		return
-	}
 	httpMethod, _ := cp.GetAsQuotedString(common.FieldMethod)
 	urlVal, _ := cp.GetAsQuotedString(common.FieldUrl)
 	workerCount, _ := cp.GetStringAsInt(common.FieldWorkerCount)
@@ -43,4 +35,16 @@ func main() {
 	}
 	lt.Process()
 	lt.PrintStats()
+}
+
+func CheckCommandEntry() {
+	if len(os.Args) > 1 && (os.Args[1] == "--help" || os.Args[1] == "-h") {
+		PrintHelp()
+		os.Exit(0)
+		return
+	} else if len(os.Args) > 1 && (os.Args[1] == "--version" || os.Args[1] == "-v") {
+		PrintVersion()
+		os.Exit(0)
+		return
+	}
 }

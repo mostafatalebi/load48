@@ -1,3 +1,9 @@
+VERSION = -X main.Version=$$(git describe --tags)
 build:
-	VERSION=$(git describe --tags)
-	CGO_ENABLED=1 go build -ldflags="-X 'main.Version=$(VERSION)'" -o ./loadtest
+	@echo "Building for version ${VERSION}"
+	CGO_ENABLED=1 go build -ldflags="${VERSION}" -o ./loadtest
+
+VERSION = -X main.Version=$$(git rev-parse HEAD)
+buildlatest:
+	@echo "Building for version ${VERSION}"
+	CGO_ENABLED=1 go build -ldflags="${VERSION}" -o ./loadtest
