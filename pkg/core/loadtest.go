@@ -18,6 +18,7 @@ type LoadTest struct {
 	PerWorker              int
 	Method              string
 	Url string
+	MaxTimeoutSec int
 	Headers map[string]string
 	ExecDurationFromHeader bool
 	ExecDurationHeaderName string
@@ -71,7 +72,7 @@ func (a *LoadTest) Process() {
 				}
 			}
 			for j := 0; j < a.PerWorker; j++ {
-				a.Send(cl, workerName)
+				a.Send(cl, time.Second * time.Duration(a.MaxTimeoutSec), workerName)
 			}
 			wg.Done()
 		}(fmt.Sprintf("Worker #%v", i))
@@ -81,9 +82,9 @@ func (a *LoadTest) Process() {
 
 // Prepares a client and sends the actual request, and manages all variables
 // needed for stats
-func (a *LoadTest) Send(c *http.Request, workerName string) {
+func (a *LoadTest) Send(c *http.Request, tout time.Duration, workerName string) {
 	tn := time.Now()
-	resp, err := GetHttpClient().Do(c)
+	resp, err := GetHttpClient(tout).Do(c)
 	if err != nil || resp == nil {
 		log.Println("#skip got error:", workerName, err)
 		return

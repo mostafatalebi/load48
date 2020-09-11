@@ -27,12 +27,12 @@ func GetHttpRequestObj(method, urlStr string, buff io.Reader) *http.Request {
 	return request
 }
 
-func GetHttpClient() *http.Client {
+func GetHttpClient(tout time.Duration) *http.Client {
 	clientOnce.Do(func() {
 		if client == nil {
 			client = http.DefaultClient
 		}
-		client.Timeout = time.Second * 1
+		client.Timeout = tout
 	})
 	return client
 }

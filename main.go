@@ -19,12 +19,14 @@ func main() {
 	execDebugHeaderName, _ := cp.GetAsString(common.FieldExecDurationHeaderName)
 	cacheUsageHeaderName, _ := cp.GetAsString(common.FieldCacheUsageHeaderName)
 	perWorkerStats, _ := cp.GetStringAsBool(common.FieldPerWorkerStats)
+	maxTimeout, _ := cp.GetStringAsInt(common.FieldMaxTimeout)
 	lt := core.NewAdGetLoadTest()
 	lt.Url = urlVal
 	lt.Method = httpMethod
 	lt.Headers = lt.GetHeadersFromArgs(os.Args)
 	lt.ConcurrentWorkers = workerCount
 	lt.PerWorker = perWorker
+	lt.MaxTimeoutSec = maxTimeout
 	lt.PerWorkerStats = perWorkerStats
 	if cp.Has(common.FieldExecDurationHeaderName) {
 		lt.ExecDurationFromHeader = true

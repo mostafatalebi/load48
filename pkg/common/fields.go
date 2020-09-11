@@ -8,4 +8,5 @@ const (
 	FieldMethod = "method"
 	FieldUrl = "url"
 	FieldPerWorkerStats = "per-worker-stats"
+	FieldMaxTimeout = "max-timeout"
 )
