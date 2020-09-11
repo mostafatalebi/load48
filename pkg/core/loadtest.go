@@ -11,6 +11,8 @@ import (
 	"time"
 )
 
+var statsMapMx = sync.RWMutex{}
+
 type LoadTest struct {
 	ConcurrentWorkers      int
 	PerWorker              int
@@ -108,6 +110,7 @@ func (a *LoadTest) Send(method string, headers map[string]string, urlStr, worker
 }
 
 func (a *LoadTest) addStat(workerName, statType string, dur time.Duration, cacheUsed bool, execDuration *time.Duration) {
+	statsMapMx.Lock()
 	if _, ok := a.Stats[workerName]; !ok {
 		a.Stats[workerName] = &LoadTestStats{}
 	}
@@ -149,6 +152,7 @@ func (a *LoadTest) addStat(workerName, statType string, dur time.Duration, cache
 	if execDuration != nil {
 		a.Stats[workerName].AverageAppExecDuration = time.Duration(a.Stats[workerName].TotalAppExecDuration.Nanoseconds() / a.Stats[workerName].Total.Load())
 	}
+	statsMapMx.Unlock()
 }
 
 func (a *LoadTest) PrintStats() {
