@@ -1,6 +1,9 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 func PrintHelp() {
 	PrintAuthorInformation()
@@ -27,7 +30,19 @@ func PrintHelp() {
 
 func PrintVersion() {
 	PrintAuthorInformation()
-	fmt.Printf("Version: %v\n", Version)
+	fmt.Printf("Version: %v\n", UnderstandVersion(Version))
+}
+
+func UnderstandVersion(v string) string {
+	if strings.Contains(v, "/") {
+		spl := strings.Split(v, "/")
+		if len(spl) > 0 {
+			return spl[len(spl)-1]
+		}
+	} else {
+		return v
+	}
+	return ""
 }
 
 func PrintAuthorInformation() {
