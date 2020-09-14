@@ -3,6 +3,7 @@ package core
 import (
 	"bytes"
 	"fmt"
+	dyanmic_params "github.com/mostafatalebi/dynamic-params"
 	"github.com/mostafatalebi/loadtest/pkg/stats"
 	"log"
 	"net"
@@ -25,16 +26,33 @@ type LoadTest struct {
 	ExecDurationHeaderName string
 	CacheUsageHeaderName   string
 	PerWorkerStats         bool
-	Stats                  map[string]*stats.StatsCollector
+	Stats                  *dyanmic_params.DynamicParams
+	Lock                  *sync.RWMutex
 }
 
 func NewAdGetLoadTest() *LoadTest {
 	return &LoadTest{
+		Lock: &sync.RWMutex{},
 		Url:   "",
-		Stats: make(map[string]*stats.StatsCollector, 0),
+		Stats: dyanmic_params.NewDynamicParams(dyanmic_params.SrcNameInternal),
 	}
 }
 
+func (a *LoadTest) AddStat(name string, s *stats.StatsCollector) {
+	a.Stats.Add(name, s)
+}
+func (a *LoadTest) GetStat(name string) *stats.StatsCollector {
+	a.Lock.Lock()
+	defer a.Lock.Unlock()
+	s := a.Stats.Get(name)
+	if s == nil {
+		return nil
+	}
+	if v, ok := s.(*stats.StatsCollector); ok {
+		return v
+	}
+	return nil
+}
 func (a *LoadTest) Process() {
 	if a.ConcurrentWorkers < 1 || a.PerWorker < 1 {
 		log.Fatalln("concurrentWorkers & perWorker must be greater than zero")
@@ -45,7 +63,7 @@ func (a *LoadTest) Process() {
 	for i := 0; i < a.ConcurrentWorkers; i++ {
 		wg.Add(1)
 		go func(workerName string) {
-			a.Stats[workerName] = stats.NewStatsManager(workerName)
+			a.AddStat(workerName, stats.NewStatsManager(workerName))
 			var bt []byte
 			bd := bytes.NewBuffer(bt)
 			req, err := http.NewRequest(a.Method, a.Url, bd)
@@ -70,7 +88,7 @@ func (a *LoadTest) Send(req *http.Request, tout time.Duration, workerName string
 	resp, err := GetHttpClient(tout).Do(req)
 	if err != nil || resp == nil {
 		if ve, ok := err.(net.Error); ok && ve.Timeout() {
-			a.Stats[workerName].IncrTimeout(1)
+			a.GetStat(workerName).IncrTimeout(1)
 		} else {
 		}
 		log.Println("#skip got error:", workerName, err)
@@ -78,11 +96,11 @@ func (a *LoadTest) Send(req *http.Request, tout time.Duration, workerName string
 	}
 	defer resp.Body.Close()
 
-	a.Stats[workerName].IncrTotal(1)
+	a.GetStat(workerName).IncrTotal(1)
 	if resp.StatusCode == 200 {
-		a.Stats[workerName].IncrSuccess(1)
+		a.GetStat(workerName).IncrSuccess(1)
 	} else {
-		a.Stats[workerName].IncrFailed(resp.StatusCode, 1)
+		a.GetStat(workerName).IncrFailed(resp.StatusCode, 1)
 	}
 
 	var cacheUsed = int64(0)
@@ -101,16 +119,16 @@ func (a *LoadTest) Send(req *http.Request, tout time.Duration, workerName string
 				appExecDure = 0
 			}
 		}
-		a.Stats[workerName].AddExecDuration(appExecDure)
-		a.Stats[workerName].AddShortestDuration(appExecDure)
-		a.Stats[workerName].AddLongestDuration(appExecDure)
-		a.Stats[workerName].AddAverageExecDuration()
+		a.GetStat(workerName).AddExecDuration(appExecDure)
+		a.GetStat(workerName).AddShortestDuration(appExecDure)
+		a.GetStat(workerName).AddLongestDuration(appExecDure)
+		a.GetStat(workerName).AddAverageExecDuration()
 	}
-	a.Stats[workerName].IncrCacheUsed(cacheUsed)
-	a.Stats[workerName].AddMainDuration(dur)
-	a.Stats[workerName].AddLongestDuration(dur)
-	a.Stats[workerName].AddShortestDuration(dur)
-	a.Stats[workerName].AddAverageDuration()
+	a.GetStat(workerName).IncrCacheUsed(cacheUsed)
+	a.GetStat(workerName).AddMainDuration(dur)
+	a.GetStat(workerName).AddLongestDuration(dur)
+	a.GetStat(workerName).AddShortestDuration(dur)
+	a.GetStat(workerName).AddAverageDuration()
 }
 
 func (a *LoadTest) GetHeadersFromArgs(args []string) *http.Header {
@@ -131,14 +149,18 @@ func (a *LoadTest) GetHeadersFromArgs(args []string) *http.Header {
 func (a *LoadTest) PrintPretty(perWorker bool) {
 	totalStats := stats.NewStatsManager("total")
 
-	for _, v := range a.Stats {
+	a.Stats.Iterate(func(key string, value interface{}) {
+		v, ok := value.(*stats.StatsCollector)
+		if !ok {
+			return
+		}
 		if perWorker {
 			v.PrintPretty()
 		}
 		newStats := v.Merge(totalStats)
 		newStats.Key = "total"
 		totalStats = &newStats
-	}
+	})
 
 	totalStats.PrintPretty()
 }
