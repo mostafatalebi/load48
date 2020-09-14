@@ -36,7 +36,7 @@ func main() {
 		lt.CacheUsageHeaderName = cacheUsageHeaderName
 	}
 	lt.Process()
-	lt.PrintStats()
+	lt.PrintPretty(perWorkerStats)
 }
 
 func CheckCommandEntry() {

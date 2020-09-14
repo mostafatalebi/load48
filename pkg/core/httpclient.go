@@ -1,38 +1,20 @@
 package core
 
 import (
-	"io"
-	"log"
-	"net/http"
+	"github.com/gojektech/heimdall/v6/httpclient"
 	"sync"
 	"time"
 )
 
 var requestOnce = &sync.Once{}
 var clientOnce = &sync.Once{}
-var request *http.Request
-var client *http.Client
+var client *httpclient.Client
 
-func GetHttpRequestObj(method, urlStr string, buff io.Reader) *http.Request {
-	requestOnce.Do(func() {
-		if request == nil {
-			cl, err := http.NewRequest(method, urlStr, buff)
-			if err == nil {
-				request = cl
-			} else {
-				log.Fatal("creating client failed")
-			}
-		}
-	})
-	return request
-}
-
-func GetHttpClient(tout time.Duration) *http.Client {
+func GetHttpClient(tout time.Duration) *httpclient.Client {
 	clientOnce.Do(func() {
 		if client == nil {
-			client = http.DefaultClient
+			client = httpclient.NewClient(httpclient.WithHTTPTimeout(tout))
 		}
-		client.Timeout = tout
 	})
 	return client
 }
