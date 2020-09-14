@@ -90,6 +90,7 @@ func (a *LoadTest) Send(req *http.Request, tout time.Duration, workerName string
 		if ve, ok := err.(net.Error); ok && ve.Timeout() {
 			a.GetStat(workerName).IncrTimeout(1)
 		} else {
+			a.GetStat(workerName).IncrFailed(500, 1)
 		}
 		log.Println("#skip got error:", workerName, err)
 		return
@@ -146,7 +147,7 @@ func (a *LoadTest) GetHeadersFromArgs(args []string) *http.Header {
 	return hds
 }
 
-func (a *LoadTest) PrintPretty(perWorker bool) {
+func (a *LoadTest) PrintPretty(perWorker bool, preset map[string]string) {
 	totalStats := stats.NewStatsManager("total")
 
 	a.Stats.Iterate(func(key string, value interface{}) {
@@ -155,12 +156,12 @@ func (a *LoadTest) PrintPretty(perWorker bool) {
 			return
 		}
 		if perWorker {
-			v.PrintPretty()
+			v.PrintPretty(preset)
 		}
 		newStats := v.Merge(totalStats)
 		newStats.Key = "total"
 		totalStats = &newStats
 	})
 
-	totalStats.PrintPretty()
+	totalStats.PrintPretty(preset)
 }

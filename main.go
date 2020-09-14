@@ -4,6 +4,7 @@ import (
 	"github.com/mostafatalebi/dynamic-params"
 	"github.com/mostafatalebi/loadtest/pkg/common"
 	"github.com/mostafatalebi/loadtest/pkg/core"
+	"github.com/mostafatalebi/loadtest/pkg/stats"
 	"os"
 )
 
@@ -36,7 +37,7 @@ func main() {
 		lt.CacheUsageHeaderName = cacheUsageHeaderName
 	}
 	lt.Process()
-	lt.PrintPretty(perWorkerStats)
+	lt.PrintPretty(perWorkerStats, stats.DefaultPreset)
 }
 
 func CheckCommandEntry() {

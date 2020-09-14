@@ -26,6 +26,24 @@ const (
 	ShortestExecDuration = "shortest-exec-duration"
 )
 
+var DefaultPreset = map[string]string{
+	Total: "Total Number of Requests",
+	Success: "Total Success",
+	Timeout: "Total Timeouts",
+	Failed+"::500": "Failed 500",
+	Failed+"::501": "Failed 501",
+	Failed+"::502": "Failed 502",
+	Failed+"::404": "Failed 404",
+	Failed+"::401": "Failed 401",
+	Failed+"::403": "Failed 403",
+	Failed+"::400": "Failed 400",
+	AverageExecDuration: "Average App Execution",
+	AverageDuration: "Average Duration",
+	ShortestDuration: "Shortest Duration",
+	ShortestExecDuration: "Shortest App Execution",
+	LongestDuration: "Longest Duration",
+	LongestExecDuration: "Longest App Execution",
+}
 
 type StatsCollector struct {
 	lock   *sync.RWMutex
@@ -277,9 +295,11 @@ func (s *StatsCollector) Merge(scp *StatsCollector) StatsCollector {
 	return *s
 }
 
-func (s *StatsCollector) PrintPretty() {
+func (s *StatsCollector) PrintPretty(preset map[string]string) {
 	fmt.Println("\n======== " + s.Key + " ========")
 	s.Params.Iterate(func(key string, value interface{}) {
-		fmt.Printf("--- %v => %v \n", key, value)
+		if v, ok := preset[key]; ok {
+			fmt.Printf("--- %v => %v \n", v, value)
+		}
 	})
 }

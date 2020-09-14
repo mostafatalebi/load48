@@ -13,7 +13,7 @@ var client *httpclient.Client
 func GetHttpClient(tout time.Duration) *httpclient.Client {
 	clientOnce.Do(func() {
 		if client == nil {
-			client = httpclient.NewClient(httpclient.WithHTTPTimeout(tout))
+			client = httpclient.NewClient(httpclient.WithHTTPTimeout(tout), httpclient.WithRetryCount(0))
 		}
 	})
 	return client
