@@ -313,8 +313,15 @@ func (s *StatsCollector) PrintPretty(preset map[string]string) {
 	for k, v := range preset {
 		if s.Params.Has(k) {
 			fmt.Printf("--- %v => %v \n", v, s.Params.Get(k))
-		} else if m, err := regexp.Match(`^[0-9]+$`, []byte(k)); err == nil && m {
-			fmt.Printf("--- Failed(%v) => %v \n", k, s.Params.Get(k))
 		}
 	}
+	s.Params.Iterate(func(key string, value interface{}) {
+		val, ok := value.(int64)
+		if !ok {
+			return
+		}
+		if m, err := regexp.Match(`^[0-9]+$`, []byte(key)); err == nil && m {
+			fmt.Printf("--- Total Failed(%v) => %v \n", key, val)
+		}
+	})
 }
