@@ -8,7 +8,12 @@ import (
 
 var LogEnabled = true
 
-type LogEntry = map[string]interface{}
+type LogEntry struct {
+	Level string `json:"level"`
+	Date string `json:"date"`
+	Key string `json:"key"`
+	Message interface{} `json:"message"`
+}
 
 const LogLevelError = "error"
 const LogLevelFatal = "fatal"
@@ -16,14 +21,14 @@ const LogLevelInfo = "info"
 
 func print(key string, level string, msg interface{}) {
 	en := LogEntry{}
-	en["key"] = key
-	en["level"] = level
-	en["message"] = msg
-	en["date"] = time.Now().Format(time.RFC3339)
+	en.Key= key
+	en.Level = level
+	en.Message = msg
+	en.Date = time.Now().Format(time.RFC3339)
 
 	m, err := json.Marshal(en)
-	if err != nil {
-		fmt.Println(m)
+	if err == nil {
+		fmt.Println(string(m))
 	}
 }
 
