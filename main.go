@@ -4,6 +4,7 @@ import (
 	"github.com/mostafatalebi/dynamic-params"
 	"github.com/mostafatalebi/loadtest/pkg/common"
 	"github.com/mostafatalebi/loadtest/pkg/core"
+	"github.com/mostafatalebi/loadtest/pkg/logger"
 	"github.com/mostafatalebi/loadtest/pkg/stats"
 	"os"
 )
@@ -21,7 +22,10 @@ func main() {
 	cacheUsageHeaderName, _ := cp.GetAsString(common.FieldCacheUsageHeaderName)
 	perWorkerStats, _ := cp.GetStringAsBool(common.FieldPerWorkerStats)
 	maxTimeout, _ := cp.GetStringAsInt(common.FieldMaxTimeout)
+	enableLogs, _ := cp.GetStringAsBool(common.FieldEnableLogs)
 	lt := core.NewAdGetLoadTest()
+	lt.EnableLogs = enableLogs
+	logger.LogEnabled = enableLogs
 	lt.Url = urlVal
 	lt.Method = httpMethod
 	lt.Headers = lt.GetHeadersFromArgs(os.Args)

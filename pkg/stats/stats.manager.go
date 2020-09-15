@@ -53,7 +53,7 @@ type StatsCollector struct {
 
 //
 func NewStatsManager(key string) *StatsCollector {
-	params := dyanmic_params.NewDynamicParams(dyanmic_params.SrcNameInternal)
+	params := dyanmic_params.NewDynamicParams(dyanmic_params.SrcNameInternal, &sync.RWMutex{})
 	return &StatsCollector{
 		lock:   &sync.RWMutex{},
 		Key:    key,
@@ -214,7 +214,7 @@ func (s *StatsCollector) AddExecLongestDuration(duration time.Duration) {
 		return
 	}
 
-	if *r < duration {
+	if *r == 0 || *r < duration {
 		s.Params.Add(LongestExecDuration, duration)
 	}
 }
@@ -230,12 +230,12 @@ func (s *StatsCollector) AddExecShortestDuration(duration time.Duration) {
 		return
 	}
 
-	if *r > duration {
+	if *r == 0 || *r > duration {
 		s.Params.Add(ShortestExecDuration, duration)
 	}
 }
 
-func (s *StatsCollector) AddAverageExecDuration() {
+func (s *StatsCollector) AddExecAverageDuration() {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	rTotal, err := s.Params.GetAsInt64(Total)
@@ -288,7 +288,7 @@ func (s *StatsCollector) Merge(scp *StatsCollector) StatsCollector {
 		case AverageDuration:
 			s.AddAverageDuration()
 		case AverageExecDuration:
-			s.AddAverageExecDuration()
+			s.AddExecAverageDuration()
 		}
 	})
 
@@ -297,9 +297,9 @@ func (s *StatsCollector) Merge(scp *StatsCollector) StatsCollector {
 
 func (s *StatsCollector) PrintPretty(preset map[string]string) {
 	fmt.Println("\n======== " + s.Key + " ========")
-	s.Params.Iterate(func(key string, value interface{}) {
-		if v, ok := preset[key]; ok {
-			fmt.Printf("--- %v => %v \n", v, value)
+	for k, v := range preset {
+		if s.Params.Has(k) {
+			fmt.Printf("--- %v => %v \n", v, s.Params.Get(k))
 		}
-	})
+	}
 }

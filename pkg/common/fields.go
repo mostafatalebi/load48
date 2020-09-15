@@ -9,4 +9,5 @@ const (
 	FieldUrl = "url"
 	FieldPerWorkerStats = "per-worker-stats"
 	FieldMaxTimeout = "max-timeout"
+	FieldEnableLogs = "--enable-logs"
 )

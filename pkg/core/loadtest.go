@@ -3,12 +3,15 @@ package core
 import (
 	"bytes"
 	"fmt"
+	"github.com/gojektech/valkyrie"
 	dyanmic_params "github.com/mostafatalebi/dynamic-params"
+	"github.com/mostafatalebi/loadtest/pkg/logger"
 	"github.com/mostafatalebi/loadtest/pkg/stats"
-	"log"
 	"net"
 	"net/http"
 	"regexp"
+	"runtime"
+	"strings"
 	"sync"
 	"time"
 )
@@ -26,15 +29,17 @@ type LoadTest struct {
 	ExecDurationHeaderName string
 	CacheUsageHeaderName   string
 	PerWorkerStats         bool
+	EnableLogs			bool
 	Stats                  *dyanmic_params.DynamicParams
 	Lock                  *sync.RWMutex
+	testStartTime time.Time
 }
 
 func NewAdGetLoadTest() *LoadTest {
 	return &LoadTest{
 		Lock: &sync.RWMutex{},
 		Url:   "",
-		Stats: dyanmic_params.NewDynamicParams(dyanmic_params.SrcNameInternal),
+		Stats: dyanmic_params.NewDynamicParams(dyanmic_params.SrcNameInternal, &sync.RWMutex{}),
 	}
 }
 
@@ -55,11 +60,12 @@ func (a *LoadTest) GetStat(name string) *stats.StatsCollector {
 }
 func (a *LoadTest) Process() {
 	if a.ConcurrentWorkers < 1 || a.PerWorker < 1 {
-		log.Fatalln("concurrentWorkers & perWorker must be greater than zero")
+		logger.Fatal("incorrect params", "concurrentWorkers & perWorker must be greater than zero")
 		return
 	}
+	a.testStartTime = time.Now()
 	wg := &sync.WaitGroup{}
-	fmt.Printf("starting all workers (%v)...\n", a.ConcurrentWorkers)
+	logger.Info("Test Status", fmt.Sprintf("starting workers(%v)", a.ConcurrentWorkers))
 	for i := 0; i < a.ConcurrentWorkers; i++ {
 		wg.Add(1)
 		go func(workerName string) {
@@ -68,7 +74,7 @@ func (a *LoadTest) Process() {
 			bd := bytes.NewBuffer(bt)
 			req, err := http.NewRequest(a.Method, a.Url, bd)
 			if err != nil {
-				log.Println("error in creating request object: ", err.Error())
+				logger.Error("creating request object failed", err.Error())
 				return
 			}
 			req.Header = *a.Headers
@@ -86,18 +92,28 @@ func (a *LoadTest) Process() {
 func (a *LoadTest) Send(req *http.Request, tout time.Duration, workerName string) {
 	tn := time.Now()
 	resp, err := GetHttpClient(tout).Do(req)
+	a.GetStat(workerName).IncrTotal(1)
 	if err != nil || resp == nil {
+		ctx := req.Context()
+		_ = ctx
+
 		if ve, ok := err.(net.Error); ok && ve.Timeout() {
 			a.GetStat(workerName).IncrTimeout(1)
+			logger.Error("request timeout", "["+workerName+"]" + err.Error())
+		} else if ve, ok := err.(*valkyrie.MultiError); ok  {
+			if err := ve.HasError(); strings.Contains(err.Error(), "context deadline exceeded") {
+				a.GetStat(workerName).IncrTimeout(1)
+				logger.Error("context timeout", "["+workerName+"]" + err.Error())
+			}
 		} else {
 			a.GetStat(workerName).IncrFailed(500, 1)
+			logger.Error("request failed with error", "["+workerName+"]" + err.Error())
 		}
-		log.Println("#skip got error:", workerName, err)
 		return
 	}
 	defer resp.Body.Close()
 
-	a.GetStat(workerName).IncrTotal(1)
+
 	if resp.StatusCode == 200 {
 		a.GetStat(workerName).IncrSuccess(1)
 	} else {
@@ -121,9 +137,9 @@ func (a *LoadTest) Send(req *http.Request, tout time.Duration, workerName string
 			}
 		}
 		a.GetStat(workerName).AddExecDuration(appExecDure)
-		a.GetStat(workerName).AddShortestDuration(appExecDure)
-		a.GetStat(workerName).AddLongestDuration(appExecDure)
-		a.GetStat(workerName).AddAverageExecDuration()
+		a.GetStat(workerName).AddExecShortestDuration(appExecDure)
+		a.GetStat(workerName).AddExecLongestDuration(appExecDure)
+		a.GetStat(workerName).AddExecAverageDuration()
 	}
 	a.GetStat(workerName).IncrCacheUsed(cacheUsed)
 	a.GetStat(workerName).AddMainDuration(dur)
@@ -164,4 +180,13 @@ func (a *LoadTest) PrintPretty(perWorker bool, preset map[string]string) {
 	})
 
 	totalStats.PrintPretty(preset)
+	a.PrintGeneralInfo()
+}
+
+func (a *LoadTest) PrintGeneralInfo() {
+	var memStats runtime.MemStats
+	runtime.ReadMemStats(&memStats)
+	fmt.Println("\n======== Test Info ========")
+	fmt.Printf("Test Duration: %v\n", time.Since(a.testStartTime))
+	fmt.Printf("Test RAM Usage: %vKB\n", memStats.Alloc/1024)
 }
