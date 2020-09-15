@@ -1,59 +1,74 @@
-### Load Test Utility
-This little program allows you to send a number of requests to an endpoint.
+### LoadTest
+LoadTest allows you to send any number of requests, with concurrency settings, to an endpoint and 
+provides you with detailed statistics. You can download an executable binary from release section, or
+download the source and `make build` it yourself.
 
-- it supports custom headers
-- it allows you to define number of concurrent workers sending requests,
-and how many each worker should send
-- it gives per worker stats, as well as total stats
-- It allows you to define a cache header, and the stats tell you how many
-requests have been served by cache how many not
-- It allows you to define a custom header, which is used to calculate app exec
-duration in the stats (because default duration contains network as well), this 
-feature allows you to have both app and total duration stats. Though it requires
-you to send your custom header in the API's response. It must contain a value
-in duration format, for example: `1ms`
+---
+#### Tables of Contents
+1. [Usage](#usage)
+    1. [Command Line](#cli)
+    2. [Config File](#config-file)
+2. [Parameters](#parameters)
+2. [Stats](#stats)
+3. [Building Source Code](#building-source-code)   
+---
+##### Usage
+In order to use LoadTest, you must pass params to it through command line.
 
+**Cli**
+For detailed list of parameters, go to Parameters section.
 
-#### Usage
-You can download binaries from releases section, or you can build it yourself:
-`make build` this command builds the source
-code and sets version info of last tag. Use `make buildlatest` to set version info
-of last commit.
-
-#### Example Request
-The following example uses all possible parameters. For special values such as
-URL, don't forget to wrap them in quotation marks to avoid any break.
+To send a simple request, go to the directory where `loadtest` executable is, and:
 ```shell script
---url=http://example.com/endpoint?token=something
---method GET
---worker-count=1
---per-worker=50
---header-Content-Type=text/html
---header-Origin=http://test.example.com
---header-Authorization=someValue
---exec-duration-header-name=App-Exec-Duration
---cache-usage-header-name=Is-Cache-Used
---per-worker-stats=1
+loadtest --max-timeout=2 --method=GET --header-Origin=mypc.com --worker-count=2 --per-worker=10 --enable-logs=true
+--url="http://127.0.0.1:8081/api/adserver/ad/get?country=spain&domain=youtube.com&format=1"
 ```
+The above command sends 40 requests, with concurrently 2 requests. Or in other words, it
+starts to request works and each of them send 20 requests sequentially. For example,
+if you want to send 40 requests all at the same time, change `--worker-count=40` and `--per-worker=1`, which
+means it sends 40 concurrent requests. You can set any header or use other methods,
+sending body with request is not supported yet.
 
-#### List of Params
+**Config File**
+It is not released yet, but it will happen soon.
 
-`--url` `string` `required` Target URL to send request to.
-`--method` `string` `required` HTTP method of the request
-`--worker-count` `int` `required` The number of concurrent request-sending-worker.
 
-`--per-worker` `int` `required` Number of sequential requests each worker sends.
+##### Parameters
+Here is the full list of supported parameters.
 
-`--header-*` `string` `optional` Any param starting with `--header-` will be treated as a request
-header
+`worker-count` **required**
+Number of concurrent request senders, or request workers. This value defines both the multiplier
+to per-worker amount and the number of concurrent requests. 
 
-`--exec-duration-header-name` `string` `optional` You can set you server to send a response header
-in debug or test mode which holds the real app duration for that request, and its format
-must be in duration format (`1s`, `256ms` etc.). Valid units are Valid time units are "ns", 
-"us" (or "µs"), "ms", "s", "m", "h".
+`per-worker` **required**
+How many requests each worker send. This is the number of requests sent sequentially.
 
-`cache-usage-header-name` `string` `optional` A response header which holds a "0" or "1" value
-and determines if app has served this request from cache
+`method` **required**
+HTTP method to send the request in, all UPPER CASE.
 
-`--per-worker-stats` `bool` `optional` if set to true, then per worker stats are 
-also printed.
+`url` **required**
+The target URL. It can be quoted, if it contains non-regular characters.
+
+`per-worker-stats` **optional**
+If true, then aside from overall stats, each worker stats is also given.
+
+`max-timeout` **required**
+After which the request is considered timed-out. It is the same value
+passed to http client, too.
+
+`enable-logs` **optional**
+If true, verbose logs are printed.
+
+`exec-duration-header-name` **optional**
+This is a nice feature. If your app, in debug mode or test mode, sends a header in its response
+which holds the value of internal app execution duration, then you will have a better understanding
+of your app. If you implement it, put the name of header for this param and the test will look
+for that in the response, too, and if not found, nothing happens. All stats based on this header
+are defined with "exec" keyword, apart from general stats. 
+
+For example, if your app sends app exec duration in a header named `App-Duration`, then
+you can set the value of this param to `App-Duration`
+
+`cache-usage-header-name` **optional**
+If target URL's response headers contain a boolean header than can be used to check if 
+the request is being served from cache or not, then set the name of that header to this response
