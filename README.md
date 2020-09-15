@@ -72,3 +72,30 @@ you can set the value of this param to `App-Duration`
 `cache-usage-header-name` **optional**
 If target URL's response headers contain a boolean header than can be used to check if 
 the request is being served from cache or not, then set the name of that header to this response
+
+##### Stats
+LoadTest produces such stats for test result:
+
+If you do not provide `exec-duration-header-name` and `cache-usage-header-name`
+they get excluded from the results.
+
+```shell script
+======== total ========
+--- Total Number of Requests => 400 
+--- Shortest Duration => 422.495µs 
+--- Shortest App Execution => 29.197µs 
+--- Longest Duration => 20.892206ms 
+--- Total Success => 400 
+--- Average App Execution => 263.95µs 
+--- Average Duration => 6.162331ms 
+--- Longest App Execution => 220.957µs 
+
+======== Test Info ========
+Test Duration: 71.237216ms
+Test RAM Usage: 2201KB
+
+```
+
+##### Building Source Code
+If you want to build from the source, download the source code and run:
+`make build` it builds and sets the version to last existing tag.
