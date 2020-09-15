@@ -3,8 +3,8 @@ package stats
 import (
 	"fmt"
 	dyanmic_params "github.com/mostafatalebi/dynamic-params"
+	"regexp"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 )
@@ -14,8 +14,9 @@ const (
 	CacheUsed            = "cache-used"
 	Success              = "success"
 	Timeout              = "timeout"
-	FailedPrefix         = "failed::"
-	Failed               = FailedPrefix + "%v"
+	ConnRefused          = "connection-refused"
+	OtherErrors          = "other-errors"
+	Failed               = "%v"
 	MainDuration         = "main-duration"
 	ExecDuration         = "exec-duration"
 	LongestDuration      = "longest-duration"
@@ -25,25 +26,6 @@ const (
 	AverageExecDuration  = "average-exec-duration"
 	ShortestExecDuration = "shortest-exec-duration"
 )
-
-var DefaultPreset = map[string]string{
-	Total: "Total Number of Requests",
-	Success: "Total Success",
-	Timeout: "Total Timeouts",
-	Failed+"::500": "Failed 500",
-	Failed+"::501": "Failed 501",
-	Failed+"::502": "Failed 502",
-	Failed+"::404": "Failed 404",
-	Failed+"::401": "Failed 401",
-	Failed+"::403": "Failed 403",
-	Failed+"::400": "Failed 400",
-	AverageExecDuration: "Average App Execution",
-	AverageDuration: "Average Duration",
-	ShortestDuration: "Shortest Duration",
-	ShortestExecDuration: "Shortest App Execution",
-	LongestDuration: "Longest Duration",
-	LongestExecDuration: "Longest App Execution",
-}
 
 type StatsCollector struct {
 	lock   *sync.RWMutex
@@ -98,6 +80,32 @@ func (s *StatsCollector) IncrTimeout(incr int64) {
 		return
 	}
 	s.Params.Add(Timeout, v+incr)
+}
+
+func (s *StatsCollector) IncrConnRefused(incr int64) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	v, err := s.Params.GetAsInt64(ConnRefused)
+	if err != nil && err.Error() != dyanmic_params.ErrNotFound {
+		return
+	} else if err != nil && err.Error() == dyanmic_params.ErrNotFound {
+		s.Params.Add(ConnRefused, incr)
+		return
+	}
+	s.Params.Add(ConnRefused, v+incr)
+}
+
+func (s *StatsCollector) IncrOtherErrors(incr int64) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	v, err := s.Params.GetAsInt64(OtherErrors)
+	if err != nil && err.Error() != dyanmic_params.ErrNotFound {
+		return
+	} else if err != nil && err.Error() == dyanmic_params.ErrNotFound {
+		s.Params.Add(OtherErrors, incr)
+		return
+	}
+	s.Params.Add(OtherErrors, v+incr)
 }
 
 func (s *StatsCollector) IncrTotal(incr int64) {
@@ -265,6 +273,12 @@ func (s *StatsCollector) Merge(scp *StatsCollector) StatsCollector {
 		case Timeout:
 			vv := value.(int64)
 			s.IncrTimeout(vv)
+		case ConnRefused:
+			vv := value.(int64)
+			s.IncrConnRefused(vv)
+		case OtherErrors:
+			vv := value.(int64)
+			s.IncrOtherErrors(vv)
 		case Success:
 			vv := value.(int64)
 			s.IncrSuccess(vv)
@@ -273,8 +287,7 @@ func (s *StatsCollector) Merge(scp *StatsCollector) StatsCollector {
 			s.IncrCacheUsed(vv)
 		case Failed:
 			vv := value.(int64)
-			fc := strings.Replace(key, FailedPrefix, "", 1)
-			fcode, _ := strconv.Atoi(fc)
+			fcode, _ := strconv.Atoi(key)
 			s.IncrFailed(fcode, vv)
 		case ExecDuration:
 			vv := value.(time.Duration)
@@ -300,6 +313,8 @@ func (s *StatsCollector) PrintPretty(preset map[string]string) {
 	for k, v := range preset {
 		if s.Params.Has(k) {
 			fmt.Printf("--- %v => %v \n", v, s.Params.Get(k))
+		} else if m, err := regexp.Match(`^[0-9]+$`, []byte(k)); err == nil && m {
+			fmt.Printf("--- Failed(%v) => %v \n", k, s.Params.Get(k))
 		}
 	}
 }

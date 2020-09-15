@@ -104,6 +104,12 @@ func (a *LoadTest) Send(req *http.Request, tout time.Duration, workerName string
 			if err := ve.HasError(); strings.Contains(err.Error(), "context deadline exceeded") {
 				a.GetStat(workerName).IncrTimeout(1)
 				logger.Error("context timeout", "["+workerName+"]" + err.Error())
+			} else if err := ve.HasError(); strings.Contains(err.Error(), "connect: connection refused") {
+				a.GetStat(workerName).IncrConnRefused(1)
+				logger.Error("connection refused", "["+workerName+"]" + err.Error())
+			} else {
+				a.GetStat(workerName).IncrOtherErrors(1)
+				logger.Error("other errors", "["+workerName+"]" + err.Error())
 			}
 		} else {
 			a.GetStat(workerName).IncrFailed(500, 1)

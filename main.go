@@ -41,7 +41,7 @@ func main() {
 		lt.CacheUsageHeaderName = cacheUsageHeaderName
 	}
 	lt.Process()
-	lt.PrintPretty(perWorkerStats, stats.DefaultPreset)
+	lt.PrintPretty(perWorkerStats, stats.DefaultPresetWithAutoFailedCodes)
 }
 
 func CheckCommandEntry() {
