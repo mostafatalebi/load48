@@ -39,7 +39,8 @@ func main() {
 		lt.CacheUsageHeaderName = cacheUsageHeaderName
 	}
 	lt.Process()
-	lt.MergeAll().PrintPretty(stats.DefaultPresetWithAutoFailedCodes)
+	st := lt.MergeAll()
+	st.PrintPretty(stats.DefaultPresetWithAutoFailedCodes)
 }
 
 func CheckCommandEntry() {
