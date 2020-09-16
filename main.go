@@ -6,7 +6,9 @@ import (
 	"github.com/mostafatalebi/loadtest/pkg/core"
 	"github.com/mostafatalebi/loadtest/pkg/logger"
 	"github.com/mostafatalebi/loadtest/pkg/stats"
+	"net/http"
 	"os"
+	"strings"
 )
 
 var Version = ""
@@ -26,7 +28,10 @@ func main() {
 	lt.EnableLogs = enableLogs
 	logger.LogEnabled = enableLogs
 	lt.Url = urlVal
-	lt.Method = httpMethod
+	if httpMethod == "" {
+		httpMethod = http.MethodGet
+	}
+	lt.Method = strings.ToUpper(httpMethod)
 	lt.Headers = lt.GetHeadersFromArgs(os.Args)
 	lt.ConcurrentWorkers = workerCount
 	lt.PerWorker = perWorker

@@ -43,6 +43,42 @@ func NewStatsManager(key string) *StatsCollector {
 	}
 }
 
+func (s *StatsCollector) GetTotal() int64 {
+	v := s.Params.Get(Total)
+	if v == nil {
+		return 0
+	}
+	return v.(int64)
+}
+func (s *StatsCollector) GetTimeout() int64 {
+	v := s.Params.Get(Timeout)
+	if v == nil {
+		return 0
+	}
+	return v.(int64)
+}
+func (s *StatsCollector) GetSuccess() int64 {
+	v := s.Params.Get(Success)
+	if v == nil {
+		return 0
+	}
+	return v.(int64)
+}
+func (s *StatsCollector) GetOtherErrors() int64 {
+	v := s.Params.Get(OtherErrors)
+	if v == nil {
+		return 0
+	}
+	return v.(int64)
+}
+func (s *StatsCollector) GetConnRefused() int64 {
+	v := s.Params.Get(ConnRefused)
+	if v == nil {
+		return 0
+	}
+	return v.(int64)
+}
+
 func (s *StatsCollector) IncrSuccess(incr int64) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
@@ -194,21 +230,37 @@ func (s *StatsCollector) AddShortestDuration(duration time.Duration) {
 	}
 }
 
-func (s *StatsCollector) AddAverageDuration() {
+func (s *StatsCollector) CalculateAverage() {
 	s.lock.Lock()
 	defer s.lock.Unlock()
-	rTotal, err := s.Params.GetAsInt64(Total)
+	rSuccess, err := s.Params.GetAsInt64(Success)
 	if err != nil && err.Error() != dyanmic_params.ErrNotFound {
 		return
-	} else if rTotal == 0 {
+	} else if rSuccess == 0 {
 		return
 	}
 	rDur, err := s.Params.GetAsTimeDuration(MainDuration)
 	if err != nil && err.Error() != dyanmic_params.ErrNotFound {
 		return
 	}
-	duration := time.Duration(rDur.Nanoseconds() / rTotal)
+	duration := time.Duration(rDur.Nanoseconds() / rSuccess)
 	s.Params.Add(AverageDuration, duration)
+}
+func (s *StatsCollector) CalculateExecAverageDuration() {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	rSuccess, err := s.Params.GetAsInt64(Success)
+	if err != nil && err.Error() != dyanmic_params.ErrNotFound {
+		return
+	} else if rSuccess == 0 {
+		return
+	}
+	rDur, err := s.Params.GetAsTimeDuration(ExecDuration)
+	if err != nil && err.Error() != dyanmic_params.ErrNotFound || rDur == nil {
+		return
+	}
+	duration := time.Duration(rDur.Nanoseconds() / rSuccess)
+	s.Params.Add(AverageExecDuration, duration)
 }
 
 func (s *StatsCollector) AddExecLongestDuration(duration time.Duration) {
@@ -243,22 +295,7 @@ func (s *StatsCollector) AddExecShortestDuration(duration time.Duration) {
 	}
 }
 
-func (s *StatsCollector) AddExecAverageDuration() {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-	rTotal, err := s.Params.GetAsInt64(Total)
-	if err != nil && err.Error() != dyanmic_params.ErrNotFound {
-		return
-	} else if rTotal == 0 {
-		return
-	}
-	rDur, err := s.Params.GetAsTimeDuration(ExecDuration)
-	if err != nil && err.Error() != dyanmic_params.ErrNotFound {
-		return
-	}
-	duration := time.Duration(rDur.Nanoseconds() / rTotal)
-	s.Params.Add(AverageExecDuration, duration)
-}
+
 
 func (s *StatsCollector) Merge(scp *StatsCollector) StatsCollector {
 	if scp.Params == nil {
@@ -269,6 +306,13 @@ func (s *StatsCollector) Merge(scp *StatsCollector) StatsCollector {
 			return
 		}
 		value := scp.Params.Get(key)
+
+		if m, err := regexp.Match(`^[0-9]+$`, []byte(key)); err == nil && m {
+			vv := value.(int64)
+			fcode, _ := strconv.Atoi(key)
+			s.IncrFailed(fcode, vv)
+			return
+		}
 		switch key {
 		case Total:
 			vv := value.(int64)
@@ -288,10 +332,6 @@ func (s *StatsCollector) Merge(scp *StatsCollector) StatsCollector {
 		case CacheUsed:
 			vv := value.(int64)
 			s.IncrCacheUsed(vv)
-		case Failed:
-			vv := value.(int64)
-			fcode, _ := strconv.Atoi(key)
-			s.IncrFailed(fcode, vv)
 		case ExecDuration:
 			vv := value.(time.Duration)
 			s.AddExecDuration(vv)
@@ -301,10 +341,6 @@ func (s *StatsCollector) Merge(scp *StatsCollector) StatsCollector {
 		case ShortestDuration:
 			vv := value.(time.Duration)
 			s.AddShortestDuration(vv)
-		case AverageDuration:
-			s.AddAverageDuration()
-		case AverageExecDuration:
-			s.AddExecAverageDuration()
 		}
 	})
 

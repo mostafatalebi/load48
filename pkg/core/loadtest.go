@@ -71,6 +71,7 @@ func (a *LoadTest) Process() {
 		wg.Add(1)
 		go func(workerName string) {
 			a.AddStat(workerName, stats.NewStatsManager(workerName))
+			a.GetStat(workerName).IncrSuccess(0)
 			var bt []byte
 			bd := bytes.NewBuffer(bt)
 			req, err := http.NewRequest(a.Method, a.Url, bd)
@@ -93,20 +94,20 @@ func (a *LoadTest) Process() {
 func (a *LoadTest) Send(req *http.Request, tout time.Duration, workerName string) {
 	tn := time.Now()
 	resp, err := GetHttpClient(tout).Do(req)
-	defer resp.Body.Close()
+	if resp != nil {
+		defer resp.Body.Close()
+	}
 	a.GetStat(workerName).IncrTotal(1)
 	err = a.UnderstandResponse(workerName, resp, err)
-
-	if err != nil {
+	if err != nil || resp == nil {
 		logger.Error("request failed", err.Error())
+		return
 	}
-
 	if resp.StatusCode == 200 {
 		a.GetStat(workerName).IncrSuccess(1)
 	} else {
 		a.GetStat(workerName).IncrFailed(resp.StatusCode, 1)
 	}
-
 	var cacheUsed = int64(0)
 	if a.CacheUsageHeaderName != "" {
 		if resp.Header.Get(a.CacheUsageHeaderName) == "1" {
@@ -126,13 +127,11 @@ func (a *LoadTest) Send(req *http.Request, tout time.Duration, workerName string
 		a.GetStat(workerName).AddExecDuration(appExecDure)
 		a.GetStat(workerName).AddExecShortestDuration(appExecDure)
 		a.GetStat(workerName).AddExecLongestDuration(appExecDure)
-		a.GetStat(workerName).AddExecAverageDuration()
 	}
 	a.GetStat(workerName).IncrCacheUsed(cacheUsed)
 	a.GetStat(workerName).AddMainDuration(dur)
 	a.GetStat(workerName).AddLongestDuration(dur)
 	a.GetStat(workerName).AddShortestDuration(dur)
-	a.GetStat(workerName).AddAverageDuration()
 }
 
 func (a *LoadTest) UnderstandResponse(workerName string, resp *http.Response, err interface{}) error {
@@ -160,6 +159,9 @@ func (a *LoadTest) UnderstandResponse(workerName string, resp *http.Response, er
 			a.GetStat(workerName).IncrFailed(500, 1)
 			return errors.New("other errors => ["+workerName+"]" + errStr)
 		}
+	} else if resp != nil && resp.StatusCode == 504 {
+		a.GetStat(workerName).IncrTimeout(1)
+		return errors.New("server timeout => ["+workerName+"]" + "server timeout")
 	}
 	return nil
 }
@@ -192,7 +194,8 @@ func (a *LoadTest) MergeAll() stats.StatsCollector {
 		newStats.Key = "total"
 		totalStats = newStats
 	})
-
+	totalStats.CalculateAverage()
+	totalStats.CalculateExecAverageDuration()
 	return totalStats
 }
 
