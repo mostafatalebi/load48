@@ -94,9 +94,6 @@ func (a *LoadTest) Send(req *http.Request, tout time.Duration, workerName string
 	resp, err := GetHttpClient(tout).Do(req)
 	a.GetStat(workerName).IncrTotal(1)
 	if err != nil || resp == nil {
-		ctx := req.Context()
-		_ = ctx
-
 		if ve, ok := err.(net.Error); ok && ve.Timeout() {
 			a.GetStat(workerName).IncrTimeout(1)
 			logger.Error("request timeout", "["+workerName+"]" + err.Error())

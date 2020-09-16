@@ -28,7 +28,7 @@ const (
 )
 
 type StatsCollector struct {
-	lock   *sync.RWMutex
+	lock   *sync.Mutex
 	Key    string
 	Params *dyanmic_params.DynamicParams
 }
@@ -37,7 +37,7 @@ type StatsCollector struct {
 func NewStatsManager(key string) *StatsCollector {
 	params := dyanmic_params.NewDynamicParams(dyanmic_params.SrcNameInternal, &sync.RWMutex{})
 	return &StatsCollector{
-		lock:   &sync.RWMutex{},
+		lock:   &sync.Mutex{},
 		Key:    key,
 		Params: params,
 	}
