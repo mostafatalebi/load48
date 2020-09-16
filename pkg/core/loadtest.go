@@ -33,6 +33,7 @@ type LoadTest struct {
 	EnableLogs			bool
 	Stats                  *dyanmic_params.DynamicParams
 	Lock                  *sync.RWMutex
+	TargetCount 	int64
 	testStartTime time.Time
 }
 
@@ -64,6 +65,7 @@ func (a *LoadTest) Process() {
 		logger.Fatal("incorrect params", "concurrentWorkers & perWorker must be greater than zero")
 		return
 	}
+
 	a.testStartTime = time.Now()
 	wg := &sync.WaitGroup{}
 	logger.Info("Test Status", fmt.Sprintf("starting workers(%v)", a.ConcurrentWorkers))
@@ -97,7 +99,7 @@ func (a *LoadTest) Send(req *http.Request, tout time.Duration, workerName string
 	if resp != nil {
 		defer resp.Body.Close()
 	}
-	a.GetStat(workerName).IncrTotal(1)
+	a.GetStat(workerName).IncrTotalSent(1)
 	err = a.UnderstandResponse(workerName, resp, err)
 	if err != nil || resp == nil {
 		logger.Error("request failed", err.Error())
@@ -204,6 +206,7 @@ func (a *LoadTest) PrintGeneralInfo() {
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
 	fmt.Println("\n======== Test Info ========")
+	fmt.Printf("Test Target: %v\n", a.TargetCount)
 	fmt.Printf("Test Duration: %v\n", time.Since(a.testStartTime))
 	fmt.Printf("Test RAM Usage: %vKB\n\n", memStats.Alloc/1024)
 }

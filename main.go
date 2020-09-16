@@ -35,6 +35,7 @@ func main() {
 	lt.Headers = lt.GetHeadersFromArgs(os.Args)
 	lt.ConcurrentWorkers = workerCount
 	lt.PerWorker = perWorker
+	lt.TargetCount = int64(perWorker*workerCount)
 	lt.MaxTimeoutSec = maxTimeout
 	if cp.Has(common.FieldExecDurationHeaderName) {
 		lt.ExecDurationFromHeader = true

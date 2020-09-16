@@ -40,16 +40,16 @@ func TestTimeOutCounterConcurrent_mustBeTrue(t *testing.T){
 		wg.Add(3)
 		go func() {
 			st.IncrTimeout(1)
-			st.IncrTotal(1)
+			st.IncrTotalSent(1)
 			wg.Done()
 		}()
 		go func() {
 			st.IncrTimeout(1)
-			st.IncrTotal(1)
+			st.IncrTotalSent(1)
 			wg.Done()
 		}()
 		go func() {
-			st.IncrTotal(1)
+			st.IncrTotalSent(1)
 			wg.Done()
 		}()
 	}
@@ -57,7 +57,7 @@ func TestTimeOutCounterConcurrent_mustBeTrue(t *testing.T){
 	v, err := st.Params.GetAsInt64(stats.Timeout)
 	assert.NoError(t, err)
 	assert.Equal(t, int64(10000*2), v)
-	v, err = st.Params.GetAsInt64(stats.Total)
+	v, err = st.Params.GetAsInt64(stats.TotalSent)
 	assert.NoError(t, err)
 	assert.Equal(t, int64(10000*3), v)
 }

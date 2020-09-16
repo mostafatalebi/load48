@@ -10,17 +10,18 @@ import (
 )
 
 const (
-	Total                = "total"
-	CacheUsed            = "cache-used"
-	Success              = "success"
-	Timeout              = "timeout"
-	ConnRefused          = "connection-refused"
-	OtherErrors          = "other-errors"
-	Failed               = "%v"
-	MainDuration         = "main-duration"
-	ExecDuration         = "exec-duration"
-	LongestDuration      = "longest-duration"
-	AverageDuration      = "average-duration"
+	TargetCount       = "target-count"
+	TotalSent       = "total-sent"
+	CacheUsed       = "cache-used"
+	Success         = "success"
+	Timeout         = "timeout"
+	ConnRefused     = "connection-refused"
+	OtherErrors     = "other-errors"
+	Failed          = "%v"
+	MainDuration    = "main-duration"
+	ExecDuration    = "exec-duration"
+	LongestDuration = "longest-duration"
+	AverageDuration = "average-duration"
 	ShortestDuration     = "shortest-duration"
 	LongestExecDuration  = "longest-exec-duration"
 	AverageExecDuration  = "average-exec-duration"
@@ -43,8 +44,15 @@ func NewStatsManager(key string) *StatsCollector {
 	}
 }
 
+func (s *StatsCollector) GetTargetCount() int64 {
+	v := s.Params.Get(TargetCount)
+	if v == nil {
+		return 0
+	}
+	return v.(int64)
+}
 func (s *StatsCollector) GetTotal() int64 {
-	v := s.Params.Get(Total)
+	v := s.Params.Get(TotalSent)
 	if v == nil {
 		return 0
 	}
@@ -144,17 +152,17 @@ func (s *StatsCollector) IncrOtherErrors(incr int64) {
 	s.Params.Add(OtherErrors, v+incr)
 }
 
-func (s *StatsCollector) IncrTotal(incr int64) {
+func (s *StatsCollector) IncrTotalSent(incr int64) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
-	v, err := s.Params.GetAsInt64(Total)
+	v, err := s.Params.GetAsInt64(TotalSent)
 	if err != nil && err.Error() != dyanmic_params.ErrNotFound {
 		return
 	} else if err != nil && err.Error() == dyanmic_params.ErrNotFound {
-		s.Params.Add(Total, incr)
+		s.Params.Add(TotalSent, incr)
 		return
 	}
-	s.Params.Add(Total, v+incr)
+	s.Params.Add(TotalSent, v+incr)
 }
 
 func (s *StatsCollector) IncrFailed(failureCode int, incr int64) {
@@ -314,9 +322,9 @@ func (s *StatsCollector) Merge(scp *StatsCollector) StatsCollector {
 			return
 		}
 		switch key {
-		case Total:
+		case TotalSent:
 			vv := value.(int64)
-			s.IncrTotal(vv)
+			s.IncrTotalSent(vv)
 		case Timeout:
 			vv := value.(int64)
 			s.IncrTimeout(vv)
@@ -360,7 +368,7 @@ func (s *StatsCollector) PrintPretty(preset map[string]string) {
 			return
 		}
 		if m, err := regexp.Match(`^[0-9]+$`, []byte(key)); err == nil && m {
-			fmt.Printf("--- Total Failed(%v) => %v \n", key, val)
+			fmt.Printf("--- TotalSent Failed(%v) => %v \n", key, val)
 		}
 	})
 }
