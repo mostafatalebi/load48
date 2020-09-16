@@ -93,10 +93,10 @@ func (a *LoadTest) Process() {
 func (a *LoadTest) Send(req *http.Request, tout time.Duration, workerName string) {
 	tn := time.Now()
 	resp, err := GetHttpClient(tout).Do(req)
-
 	defer resp.Body.Close()
-
+	a.GetStat(workerName).IncrTotal(1)
 	err = a.UnderstandResponse(workerName, resp, err)
+
 	if err != nil {
 		logger.Error("request failed", err.Error())
 	}
