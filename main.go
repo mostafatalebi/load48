@@ -20,7 +20,6 @@ func main() {
 	perWorker, _ := cp.GetStringAsInt(common.FieldPerWorker)
 	execDebugHeaderName, _ := cp.GetAsString(common.FieldExecDurationHeaderName)
 	cacheUsageHeaderName, _ := cp.GetAsString(common.FieldCacheUsageHeaderName)
-	perWorkerStats, _ := cp.GetStringAsBool(common.FieldPerWorkerStats)
 	maxTimeout, _ := cp.GetStringAsInt(common.FieldMaxTimeout)
 	enableLogs, _ := cp.GetStringAsBool(common.FieldEnableLogs)
 	lt := core.NewAdGetLoadTest()
@@ -32,7 +31,6 @@ func main() {
 	lt.ConcurrentWorkers = workerCount
 	lt.PerWorker = perWorker
 	lt.MaxTimeoutSec = maxTimeout
-	lt.PerWorkerStats = perWorkerStats
 	if cp.Has(common.FieldExecDurationHeaderName) {
 		lt.ExecDurationFromHeader = true
 		lt.ExecDurationHeaderName = execDebugHeaderName
@@ -41,7 +39,7 @@ func main() {
 		lt.CacheUsageHeaderName = cacheUsageHeaderName
 	}
 	lt.Process()
-	lt.PrintPretty(perWorkerStats, stats.DefaultPresetWithAutoFailedCodes)
+	lt.MergeAll().PrintPretty(stats.DefaultPresetWithAutoFailedCodes)
 }
 
 func CheckCommandEntry() {

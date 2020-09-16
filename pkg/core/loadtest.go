@@ -2,6 +2,7 @@ package core
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"github.com/gojektech/valkyrie"
 	dyanmic_params "github.com/mostafatalebi/dynamic-params"
@@ -92,30 +93,13 @@ func (a *LoadTest) Process() {
 func (a *LoadTest) Send(req *http.Request, tout time.Duration, workerName string) {
 	tn := time.Now()
 	resp, err := GetHttpClient(tout).Do(req)
-	a.GetStat(workerName).IncrTotal(1)
-	if err != nil || resp == nil {
-		if ve, ok := err.(net.Error); ok && ve.Timeout() {
-			a.GetStat(workerName).IncrTimeout(1)
-			logger.Error("request timeout", "["+workerName+"]" + err.Error())
-		} else if ve, ok := err.(*valkyrie.MultiError); ok  {
-			if err := ve.HasError(); strings.Contains(err.Error(), "context deadline exceeded") {
-				a.GetStat(workerName).IncrTimeout(1)
-				logger.Error("context timeout", "["+workerName+"]" + err.Error())
-			} else if err := ve.HasError(); strings.Contains(err.Error(), "connect: connection refused") {
-				a.GetStat(workerName).IncrConnRefused(1)
-				logger.Error("connection refused", "["+workerName+"]" + err.Error())
-			} else {
-				a.GetStat(workerName).IncrOtherErrors(1)
-				logger.Error("other errors", "["+workerName+"]" + err.Error())
-			}
-		} else {
-			a.GetStat(workerName).IncrFailed(500, 1)
-			logger.Error("request failed with error", "["+workerName+"]" + err.Error())
-		}
-		return
-	}
+
 	defer resp.Body.Close()
 
+	err = a.UnderstandResponse(workerName, resp, err)
+	if err != nil {
+		logger.Error("request failed", err.Error())
+	}
 
 	if resp.StatusCode == 200 {
 		a.GetStat(workerName).IncrSuccess(1)
@@ -151,6 +135,35 @@ func (a *LoadTest) Send(req *http.Request, tout time.Duration, workerName string
 	a.GetStat(workerName).AddAverageDuration()
 }
 
+func (a *LoadTest) UnderstandResponse(workerName string, resp *http.Response, err interface{}) error {
+	if err != nil || resp == nil {
+		if ve, ok := err.(net.Error); ok && ve.Timeout() {
+			a.GetStat(workerName).IncrTimeout(1)
+			logger.Error("request timeout", "["+workerName+"]" + ve.Error())
+		} else if ve, ok := err.(*valkyrie.MultiError); ok  {
+			errStr := ve.Error()
+			if err := ve.HasError(); strings.Contains(errStr, "context deadline exceeded") {
+				a.GetStat(workerName).IncrTimeout(1)
+				return errors.New("context timeout => ["+workerName+"]" + err.Error())
+			} else if err := ve.HasError(); strings.Contains(err.Error(), "connect: connection refused") {
+				a.GetStat(workerName).IncrConnRefused(1)
+				return errors.New("connection refused => ["+workerName+"]" + err.Error())
+			} else {
+				a.GetStat(workerName).IncrOtherErrors(1)
+				return errors.New("other errors => ["+workerName+"]" + err.Error())
+			}
+		} else {
+			errStr := ""
+			if v, ok := err.(error); ok {
+				errStr = v.Error()
+			}
+			a.GetStat(workerName).IncrFailed(500, 1)
+			return errors.New("other errors => ["+workerName+"]" + errStr)
+		}
+	}
+	return nil
+}
+
 func (a *LoadTest) GetHeadersFromArgs(args []string) *http.Header {
 	hds := &http.Header{}
 	rg := regexp.MustCompile(`\-\-header-([a-zA-Z0-9\-]+)\=(.+)`)
@@ -166,30 +179,28 @@ func (a *LoadTest) GetHeadersFromArgs(args []string) *http.Header {
 	return hds
 }
 
-func (a *LoadTest) PrintPretty(perWorker bool, preset map[string]string) {
-	totalStats := stats.NewStatsManager("total")
+
+func (a *LoadTest) MergeAll() stats.StatsCollector {
+	var totalStats stats.StatsCollector
 
 	a.Stats.Iterate(func(key string, value interface{}) {
 		v, ok := value.(*stats.StatsCollector)
 		if !ok {
 			return
 		}
-		if perWorker {
-			v.PrintPretty(preset)
-		}
-		newStats := v.Merge(totalStats)
+		newStats := v.Merge(&totalStats)
 		newStats.Key = "total"
-		totalStats = &newStats
+		totalStats = newStats
 	})
 
-	totalStats.PrintPretty(preset)
-	a.PrintGeneralInfo()
+	return totalStats
 }
+
 
 func (a *LoadTest) PrintGeneralInfo() {
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
 	fmt.Println("\n======== Test Info ========")
 	fmt.Printf("Test Duration: %v\n", time.Since(a.testStartTime))
-	fmt.Printf("Test RAM Usage: %vKB\n", memStats.Alloc/1024)
+	fmt.Printf("Test RAM Usage: %vKB\n\n", memStats.Alloc/1024)
 }

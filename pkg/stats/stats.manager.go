@@ -261,6 +261,9 @@ func (s *StatsCollector) AddExecAverageDuration() {
 }
 
 func (s *StatsCollector) Merge(scp *StatsCollector) StatsCollector {
+	if scp.Params == nil {
+		return *s
+	}
 	s.Params.Iterate(func(key string, origValue interface{}) {
 		if !scp.Params.Has(key) {
 			return

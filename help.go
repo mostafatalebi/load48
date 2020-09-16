@@ -21,11 +21,8 @@ func PrintHelp() {
 	must be in duration format (1s, 256ms etc.). Valid units are Valid time units are "ns",
 		"us" (or "µs"), "ms", "s", "m", "h".
 
-	cache-usage-header-name string optional A response header which holds a "0" or "1" value
-	and determines if app has served this request from cache
-
-	--per-worker-stats bool optional if set to true, then per worker stats are
-	also printed.`)
+	--cache-usage-header-name string optional A response header which holds a "0" or "1" value
+	and determines if app has served this request from cache`)
 }
 
 func PrintVersion() {
@@ -48,4 +45,5 @@ func UnderstandVersion(v string) string {
 func PrintAuthorInformation() {
 	fmt.Println("Author: Mostafa Talebi")
 	fmt.Println("Email: most.talebi@gmail.com")
+	fmt.Println("Github: http://github.com/mostafatalebi/loadtest")
 }

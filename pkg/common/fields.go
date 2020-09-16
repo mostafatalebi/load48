@@ -7,7 +7,6 @@ const (
 	FieldPerWorker = "per-worker"
 	FieldMethod = "method"
 	FieldUrl = "url"
-	FieldPerWorkerStats = "per-worker-stats"
 	FieldMaxTimeout = "max-timeout"
 	FieldEnableLogs = "enable-logs"
 )
