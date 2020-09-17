@@ -20,12 +20,13 @@ For detailed list of parameters, go to Parameters section.
 
 To send a simple request, go to the directory where `loadtest` executable is, and:
 ```shell script
-loadtest --max-timeout=2 --method=GET --header-Origin=mypc.com --worker-count=2 --per-worker=10 --enable-logs=true
+loadtest --max-timeout=2 --method=GET --header-Origin=mypc.com --concurrencyt=2 --request-count=10 
+--enable-logs=true 
 --url="http://127.0.0.1:8081/api/adserver/ad/get?country=spain&domain=youtube.com&format=1"
 ```
-The above command sends 40 requests, with concurrently 2 requests. Or in other words, it
-starts to request works and each of them send 20 requests sequentially. For example,
-if you want to send 40 requests all at the same time, change `--worker-count=40` and `--per-worker=1`, which
+The above command sends 40 requests, with concurrently 2 requests. For example,
+if you want to send 40 requests all at the same time, change `--concurrency=40` and 
+`--request-count=40`, which
 means it sends 40 concurrent requests. You can set any header or use other methods,
 sending body with request is not supported yet.
 
@@ -36,12 +37,14 @@ It is not released yet, but it will happen soon.
 ##### Parameters
 Here is the full list of supported parameters.
 
-`worker-count` **required**
-Number of concurrent request senders, or request workers. This value defines both the multiplier
-to per-worker amount and the number of concurrent requests. 
+Make sure to prepend `--` before any param name, if you are going
+to use `cli` mode.
 
-`per-worker` **required**
-How many requests each worker send. This is the number of requests sent sequentially.
+`concurrency` **required**
+Number of max concurrent requests,
+
+`request-count` **required**
+How many workers must be totally sent.
 
 `method` **required**
 HTTP method to send the request in, all UPPER CASE.
@@ -49,8 +52,9 @@ HTTP method to send the request in, all UPPER CASE.
 `url` **required**
 The target URL. It can be quoted, if it contains non-regular characters.
 
-`per-worker-stats` **optional**
-If true, then aside from overall stats, each worker stats is also given.
+`assert-body-string` **optional**
+If set, checks to see if response's body's content contains
+the given string or not, if yes, then counts that request as success
 
 `max-timeout` **required**
 After which the request is considered timed-out. It is the same value
@@ -75,7 +79,7 @@ the request is being served from cache or not, then set the name of that header 
 
 ##### Stats
 LoadTest produces such stats for test result:
-
+ 
 If you do not provide `exec-duration-header-name` and `cache-usage-header-name`
 they get excluded from the results.
 
@@ -91,8 +95,9 @@ they get excluded from the results.
 --- Longest App Execution => 220.957µs 
 
 ======== Test Info ========
-Test Duration: 71.237216ms
-Test RAM Usage: 2201KB
+Test Target: 400 // number of initial target set by user
+Test Duration: 71.237216ms // total duration of test
+Test RAM Usage: 2201KB // RAM usage of whole test
 
 ```
 

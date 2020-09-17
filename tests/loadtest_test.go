@@ -44,8 +44,8 @@ func TestMain(m *testing.M) {
 
 func TestLoadTestOnMockServer(t *testing.T) {
 	lt := core.NewAdGetLoadTest()
-	lt.ConcurrentWorkers = 100
-	lt.PerWorker = 1
+	lt.MaxConcurrentRequests = 100
+	lt.NumberOfRequests = 1
 	lt.Url = "http://127.0.0.1:"+listenAddrPort+"/test"
 	lt.Method = http.MethodGet
 	lt.MaxTimeoutSec = 1

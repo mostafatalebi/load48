@@ -6,6 +6,7 @@ import (
 	"github.com/mostafatalebi/loadtest/pkg/core"
 	"github.com/mostafatalebi/loadtest/pkg/logger"
 	"github.com/mostafatalebi/loadtest/pkg/stats"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -18,8 +19,8 @@ func main() {
 	cp := dyanmic_params.NewDynamicParams(dyanmic_params.SrcNameArgs, os.Args)
 	httpMethod, _ := cp.GetAsQuotedString(common.FieldMethod)
 	urlVal, _ := cp.GetAsQuotedString(common.FieldUrl)
-	workerCount, _ := cp.GetStringAsInt(common.FieldWorkerCount)
-	perWorker, _ := cp.GetStringAsInt(common.FieldPerWorker)
+	workerCount, _ := cp.GetStringAsInt(common.FieldConcurrency)
+	totalNumberOfRequests, _ := cp.GetStringAsInt(common.FieldNumberOfRequests)
 	execDebugHeaderName, _ := cp.GetAsString(common.FieldExecDurationHeaderName)
 	cacheUsageHeaderName, _ := cp.GetAsString(common.FieldCacheUsageHeaderName)
 	maxTimeout, _ := cp.GetStringAsInt(common.FieldMaxTimeout)
@@ -35,9 +36,8 @@ func main() {
 	lt.Method = strings.ToUpper(httpMethod)
 	lt.AssertBodyString = assertBodyString
 	lt.Headers = lt.GetHeadersFromArgs(os.Args)
-	lt.ConcurrentWorkers = workerCount
-	lt.PerWorker = perWorker
-	lt.TargetCount = int64(perWorker*workerCount)
+	lt.MaxConcurrentRequests = int64(workerCount)
+	lt.NumberOfRequests = int64(totalNumberOfRequests)
 	lt.MaxTimeoutSec = maxTimeout
 	if cp.Has(common.FieldExecDurationHeaderName) {
 		lt.ExecDurationFromHeader = true
@@ -46,7 +46,10 @@ func main() {
 	if cp.Has(common.FieldCacheUsageHeaderName) {
 		lt.CacheUsageHeaderName = cacheUsageHeaderName
 	}
-	lt.Process()
+	err := lt.Process()
+	if err != nil {
+		log.Panic(err)
+	}
 	st := lt.MergeAll()
 	st.PrintPretty(stats.DefaultPresetWithAutoFailedCodes)
 	lt.PrintGeneralInfo()

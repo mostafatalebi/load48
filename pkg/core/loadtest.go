@@ -8,6 +8,7 @@ import (
 	dyanmic_params "github.com/mostafatalebi/dynamic-params"
 	"github.com/mostafatalebi/loadtest/pkg/logger"
 	"github.com/mostafatalebi/loadtest/pkg/stats"
+	"go.uber.org/atomic"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -21,30 +22,45 @@ import (
 var statsMapMx = sync.RWMutex{}
 
 type LoadTest struct {
-	ConcurrentWorkers      int
-	PerWorker              int
-	Method                 string
-	AssertBodyString       string
-	Url                    string
-	MaxTimeoutSec          int
-	Headers                *http.Header
-	ExecDurationFromHeader bool
-	ExecDurationHeaderName string
-	CacheUsageHeaderName   string
-	PerWorkerStats         bool
-	EnableLogs             bool
+	MaxConcurrentRequests     int64
+	currentConcurrentRequests atomic.Int64
+	NumberOfRequests          int64
+	Method                    string
+	AssertBodyString          string
+	Url                       string
+	MaxTimeoutSec             int
+	Headers                   *http.Header
+	ExecDurationFromHeader    bool
+	ExecDurationHeaderName    string
+	CacheUsageHeaderName      string
+	PerWorkerStats            bool
+	EnableLogs                bool
 	Stats                  *dyanmic_params.DynamicParams
 	Lock                   *sync.RWMutex
-	TargetCount            int64
 	testStartTime          time.Time
+	requestChan			   chan int64
 }
 
 func NewAdGetLoadTest() *LoadTest {
-	return &LoadTest{
+	l := &LoadTest{
 		Lock:  &sync.RWMutex{},
 		Url:   "",
 		Stats: dyanmic_params.NewDynamicParams(dyanmic_params.SrcNameInternal, &sync.RWMutex{}),
 	}
+	l.currentConcurrentRequests.Add(0)
+	return l
+}
+
+func (a *LoadTest) publishRequestsToChannel() {
+	if a.requestChan == nil {
+		a.requestChan = make(chan int64, a.MaxConcurrentRequests)
+	}
+	go func() {
+		for i := int64(0); i < a.NumberOfRequests; i++ {
+			a.requestChan <- int64(1)
+		}
+		close(a.requestChan)
+	}()
 }
 
 func (a *LoadTest) AddStat(name string, s *stats.StatsCollector) {
@@ -62,52 +78,56 @@ func (a *LoadTest) GetStat(name string) *stats.StatsCollector {
 	}
 	return nil
 }
-func (a *LoadTest) Process() {
-	if a.ConcurrentWorkers < 1 || a.PerWorker < 1 {
-		logger.Fatal("incorrect params", "concurrentWorkers & perWorker must be greater than zero")
-		return
+func (a *LoadTest) Process() error {
+	if a.MaxConcurrentRequests < 1 || a.NumberOfRequests < 1 {
+		logger.Fatal("incorrect params", "concurrent & request-count param must be greater than zero")
+		return errors.New("incorrect params")
+	} else if a.NumberOfRequests < a.MaxConcurrentRequests {
+		logger.Fatal("incorrect params", "concurrent cannot be greater than request-count")
+		return errors.New("incorrect params")
 	}
-
+	a.publishRequestsToChannel()
 	a.testStartTime = time.Now()
 	wg := &sync.WaitGroup{}
-	logger.Info("Test Status", fmt.Sprintf("starting workers(%v)", a.ConcurrentWorkers))
+	logger.Info("Test Status", fmt.Sprintf("starting workers(%v)", a.MaxConcurrentRequests))
 	var bt []byte
 	bd := bytes.NewBuffer(bt)
 	req, err := http.NewRequest(a.Method, a.Url, bd)
-	for i := 0; i < a.ConcurrentWorkers; i++ {
-		wg.Add(1)
-		go func(workerName string) {
-			a.AddStat(workerName, stats.NewStatsManager(workerName))
-			a.GetStat(workerName).IncrSuccess(0)
+	wg.Add(1)
+	go func() {
+		a.AddStat("default", stats.NewStatsManager("default"))
+		a.GetStat("default").IncrSuccess(0)
+		for _ = range a.requestChan {
 			if err != nil {
 				logger.Error("creating request object failed", err.Error())
 				return
 			}
 			req.Header = *a.Headers
-			for j := 0; j < a.PerWorker; j++ {
-				a.Send(req, time.Second*time.Duration(a.MaxTimeoutSec), workerName)
-			}
-			wg.Done()
-		}(fmt.Sprintf("Worker #%v", i))
-	}
+			a.Send(req, time.Second*time.Duration(a.MaxTimeoutSec), "default")
+		}
+		wg.Done()
+	}()
 	wg.Wait()
+	return nil
 }
 
 // Prepares a client and sends the actual request, and manages all variables
 // needed for stats
-func (a *LoadTest) Send(req *http.Request, tout time.Duration, workerName string) {
+func (a *LoadTest) Send(req *http.Request, tout time.Duration, profileName string) {
+	defer a.currentConcurrentRequests.Add(-1)
 	tn := time.Now()
 	resp, err := GetHttpClient(tout).Do(req)
 	if resp != nil {
 		defer resp.Body.Close()
 	}
-	a.GetStat(workerName).IncrTotalSent(1)
-	err = a.UnderstandResponse(workerName, resp, err)
+	a.GetStat(profileName).IncrTotalSent(1)
+	err = a.UnderstandResponse(profileName, resp, err)
 	if err != nil {
 		logger.Error("request failed", err.Error())
 		return
 	} else if resp == nil {
 		logger.Error("request failed", "no error and no response")
+		return
 	}
 	if resp.StatusCode == 200 {
 		if a.AssertBodyString != "" {
@@ -116,15 +136,15 @@ func (a *LoadTest) Send(req *http.Request, tout time.Duration, workerName string
 			if err == nil {
 				bdstr := string(btdata)
 				if strings.Contains(bdstr, a.AssertBodyString) {
-					a.GetStat(workerName).IncrSuccess(1)
+					a.GetStat(profileName).IncrSuccess(1)
 				}
 			}
 
 		} else {
-			a.GetStat(workerName).IncrSuccess(1)
+			a.GetStat(profileName).IncrSuccess(1)
 		}
 	} else {
-		a.GetStat(workerName).IncrFailed(resp.StatusCode, 1)
+		a.GetStat(profileName).IncrFailed(resp.StatusCode, 1)
 	}
 	var cacheUsed = int64(0)
 	if a.CacheUsageHeaderName != "" {
@@ -142,44 +162,44 @@ func (a *LoadTest) Send(req *http.Request, tout time.Duration, workerName string
 				appExecDure = 0
 			}
 		}
-		a.GetStat(workerName).AddExecDuration(appExecDure)
-		a.GetStat(workerName).AddExecShortestDuration(appExecDure)
-		a.GetStat(workerName).AddExecLongestDuration(appExecDure)
+		a.GetStat(profileName).AddExecDuration(appExecDure)
+		a.GetStat(profileName).AddExecShortestDuration(appExecDure)
+		a.GetStat(profileName).AddExecLongestDuration(appExecDure)
 	}
-	a.GetStat(workerName).IncrCacheUsed(cacheUsed)
-	a.GetStat(workerName).AddMainDuration(dur)
-	a.GetStat(workerName).AddLongestDuration(dur)
-	a.GetStat(workerName).AddShortestDuration(dur)
+	a.GetStat(profileName).IncrCacheUsed(cacheUsed)
+	a.GetStat(profileName).AddMainDuration(dur)
+	a.GetStat(profileName).AddLongestDuration(dur)
+	a.GetStat(profileName).AddShortestDuration(dur)
 }
 
-func (a *LoadTest) UnderstandResponse(workerName string, resp *http.Response, err interface{}) error {
+func (a *LoadTest) UnderstandResponse(profileName string, resp *http.Response, err interface{}) error {
 	if err != nil || resp == nil {
 		if ve, ok := err.(net.Error); ok && ve.Timeout() {
-			a.GetStat(workerName).IncrTimeout(1)
-			logger.Error("request timeout", "["+workerName+"]"+ve.Error())
+			a.GetStat(profileName).IncrTimeout(1)
+			logger.Error("request timeout", "["+profileName+"]"+ve.Error())
 		} else if ve, ok := err.(*valkyrie.MultiError); ok {
 			errStr := ve.Error()
 			if err := ve.HasError(); strings.Contains(errStr, "context deadline exceeded") {
-				a.GetStat(workerName).IncrTimeout(1)
-				return errors.New("context timeout => [" + workerName + "]" + err.Error())
+				a.GetStat(profileName).IncrTimeout(1)
+				return errors.New("context timeout => [" + profileName + "]" + err.Error())
 			} else if err := ve.HasError(); strings.Contains(err.Error(), "connect: connection refused") {
-				a.GetStat(workerName).IncrConnRefused(1)
-				return errors.New("connection refused => [" + workerName + "]" + err.Error())
+				a.GetStat(profileName).IncrConnRefused(1)
+				return errors.New("connection refused => [" + profileName + "]" + err.Error())
 			} else {
-				a.GetStat(workerName).IncrOtherErrors(1)
-				return errors.New("other errors => [" + workerName + "]" + err.Error())
+				a.GetStat(profileName).IncrOtherErrors(1)
+				return errors.New("other errors => [" + profileName + "]" + err.Error())
 			}
 		} else {
 			errStr := ""
 			if v, ok := err.(error); ok {
 				errStr = v.Error()
 			}
-			a.GetStat(workerName).IncrFailed(500, 1)
-			return errors.New("other errors => [" + workerName + "]" + errStr)
+			a.GetStat(profileName).IncrFailed(500, 1)
+			return errors.New("other errors => [" + profileName + "]" + errStr)
 		}
 	} else if resp.StatusCode == 504 {
-		a.GetStat(workerName).IncrTimeout(1)
-		return errors.New("server timeout => [" + workerName + "]")
+		a.GetStat(profileName).IncrTimeout(1)
+		return errors.New("server timeout => [" + profileName + "]")
 	}
 	return nil
 }
@@ -220,7 +240,7 @@ func (a *LoadTest) PrintGeneralInfo() {
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
 	fmt.Println("\n======== Test Info ========")
-	fmt.Printf("Test Target: %v\n", a.TargetCount)
+	fmt.Printf("Test Target: %v\n", a.NumberOfRequests)
 	fmt.Printf("Test Duration: %v\n", time.Since(a.testStartTime))
 	fmt.Printf("Test RAM Usage: %vKB\n\n", memStats.Alloc/1024)
 }
