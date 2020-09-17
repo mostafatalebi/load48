@@ -415,7 +415,7 @@ func (s *StatsCollector) PrintPretty(preset map[string]string) {
 			return
 		}
 		if m, err := regexp.Match(`^[0-9]+$`, []byte(key)); err == nil && m {
-			fmt.Printf("--- TotalSent Failed(%v) => %v \n", key, val)
+			fmt.Printf("--- Total Failed(%v) => %v \n", key, val)
 		}
 	})
 }

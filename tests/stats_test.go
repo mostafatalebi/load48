@@ -103,6 +103,47 @@ func TestMergingStats(t *testing.T){
 	assert.NoError(t, err)
 	assert.Equal(t, int64(10000*3), v)
 }
+func TestMergingStats_onlyLastGroutineHasTimeout(t *testing.T){
+	lt := core.NewAdGetLoadTest()
+	st := stats.NewStatsManager("test_1")
+	st2 := stats.NewStatsManager("test_2")
+	st3 := stats.NewStatsManager("test_3")
+
+	lt.AddStat("test_1", st)
+	lt.AddStat("test_2", st2)
+	lt.AddStat("test_3", st3)
+
+	wg := &sync.WaitGroup{}
+
+	for i := 0; i < 10000; i++ {
+		wg.Add(1)
+		go func() {
+			lt.GetStat("test_1").IncrTotalSent(1)
+			wg.Done()
+		}()
+		wg.Add(1)
+		go func() {
+			lt.GetStat("test_2").IncrTotalSent(1)
+			wg.Done()
+		}()
+		wg.Add(1)
+		go func() {
+			lt.GetStat("test_3").IncrTotalSent(1)
+			lt.GetStat("test_3").IncrTimeout(1)
+			wg.Done()
+		}()
+	}
+
+	wg.Wait()
+
+
+
+	var stMerged = lt.MergeAll()
+	stMerged.PrintPretty(stats.DefaultPresetWithAutoFailedCodes)
+	v, err := stMerged.Params.GetAsInt64(stats.Timeout)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(10000), v)
+}
 
 func TestErrorStrForFailedRequests(t *testing.T){
 	lt := core.NewAdGetLoadTest()
