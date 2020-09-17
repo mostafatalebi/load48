@@ -3,6 +3,7 @@ package stats
 import (
 	"fmt"
 	dyanmic_params "github.com/mostafatalebi/dynamic-params"
+	"github.com/mostafatalebi/loadtest/pkg/common"
 	"regexp"
 	"strconv"
 	"sync"
@@ -28,9 +29,16 @@ const (
 	ShortestExecDuration = "shortest-exec-duration"
 )
 
+
+var DefaultAllowedStatParams = []string{TargetCount,TotalSent,CacheUsed,Success,Timeout,
+	ConnRefused,OtherErrors,Failed,MainDuration,ExecDuration,LongestDuration,AverageDuration,
+	ShortestDuration,LongestExecDuration,AverageExecDuration,ShortestExecDuration,
+}
+
 type StatsCollector struct {
 	lock   *sync.Mutex
 	Key    string
+	AllowedParams []string
 	Params *dyanmic_params.DynamicParams
 }
 
@@ -38,6 +46,7 @@ type StatsCollector struct {
 func NewStatsManager(key string) *StatsCollector {
 	params := dyanmic_params.NewDynamicParams(dyanmic_params.SrcNameInternal, &sync.RWMutex{})
 	return &StatsCollector{
+		AllowedParams: DefaultAllowedStatParams,
 		lock:   &sync.Mutex{},
 		Key:    key,
 		Params: params,
@@ -310,9 +319,11 @@ func (s *StatsCollector) Merge(scp *StatsCollector) StatsCollector {
 		return *s
 	}
 	s.Params.Iterate(func(key string, origValue interface{}) {
-		if !scp.Params.Has(key) {
+		if !scp.Params.Has(key) && !common.ExistsStrInArray(key, s.AllowedParams) {
 			return
 		}
+
+
 		value := scp.Params.Get(key)
 
 		if m, err := regexp.Match(`^[0-9]+$`, []byte(key)); err == nil && m {
