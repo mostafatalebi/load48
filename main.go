@@ -24,6 +24,7 @@ func main() {
 	cacheUsageHeaderName, _ := cp.GetAsString(common.FieldCacheUsageHeaderName)
 	maxTimeout, _ := cp.GetStringAsInt(common.FieldMaxTimeout)
 	enableLogs, _ := cp.GetStringAsBool(common.FieldEnableLogs)
+	checkBodyString, _ := cp.GetAsString(common.CheckBodyString)
 	lt := core.NewAdGetLoadTest()
 	lt.EnableLogs = enableLogs
 	logger.LogEnabled = enableLogs
@@ -32,6 +33,7 @@ func main() {
 		httpMethod = http.MethodGet
 	}
 	lt.Method = strings.ToUpper(httpMethod)
+	lt.CheckBodyString = checkBodyString
 	lt.Headers = lt.GetHeadersFromArgs(os.Args)
 	lt.ConcurrentWorkers = workerCount
 	lt.PerWorker = perWorker
@@ -47,6 +49,7 @@ func main() {
 	lt.Process()
 	st := lt.MergeAll()
 	st.PrintPretty(stats.DefaultPresetWithAutoFailedCodes)
+	lt.PrintGeneralInfo()
 }
 
 func CheckCommandEntry() {

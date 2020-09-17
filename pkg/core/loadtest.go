@@ -8,6 +8,7 @@ import (
 	dyanmic_params "github.com/mostafatalebi/dynamic-params"
 	"github.com/mostafatalebi/loadtest/pkg/logger"
 	"github.com/mostafatalebi/loadtest/pkg/stats"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"regexp"
@@ -23,6 +24,7 @@ type LoadTest struct {
 	ConcurrentWorkers      int
 	PerWorker              int
 	Method                 string
+	CheckBodyString        string
 	Url                    string
 	MaxTimeoutSec          int
 	Headers                *http.Header
@@ -30,16 +32,16 @@ type LoadTest struct {
 	ExecDurationHeaderName string
 	CacheUsageHeaderName   string
 	PerWorkerStats         bool
-	EnableLogs			bool
+	EnableLogs             bool
 	Stats                  *dyanmic_params.DynamicParams
-	Lock                  *sync.RWMutex
-	TargetCount 	int64
-	testStartTime time.Time
+	Lock                   *sync.RWMutex
+	TargetCount            int64
+	testStartTime          time.Time
 }
 
 func NewAdGetLoadTest() *LoadTest {
 	return &LoadTest{
-		Lock: &sync.RWMutex{},
+		Lock:  &sync.RWMutex{},
 		Url:   "",
 		Stats: dyanmic_params.NewDynamicParams(dyanmic_params.SrcNameInternal, &sync.RWMutex{}),
 	}
@@ -69,14 +71,14 @@ func (a *LoadTest) Process() {
 	a.testStartTime = time.Now()
 	wg := &sync.WaitGroup{}
 	logger.Info("Test Status", fmt.Sprintf("starting workers(%v)", a.ConcurrentWorkers))
+	var bt []byte
+	bd := bytes.NewBuffer(bt)
+	req, err := http.NewRequest(a.Method, a.Url, bd)
 	for i := 0; i < a.ConcurrentWorkers; i++ {
 		wg.Add(1)
 		go func(workerName string) {
 			a.AddStat(workerName, stats.NewStatsManager(workerName))
 			a.GetStat(workerName).IncrSuccess(0)
-			var bt []byte
-			bd := bytes.NewBuffer(bt)
-			req, err := http.NewRequest(a.Method, a.Url, bd)
 			if err != nil {
 				logger.Error("creating request object failed", err.Error())
 				return
@@ -101,12 +103,26 @@ func (a *LoadTest) Send(req *http.Request, tout time.Duration, workerName string
 	}
 	a.GetStat(workerName).IncrTotalSent(1)
 	err = a.UnderstandResponse(workerName, resp, err)
-	if err != nil || resp == nil {
+	if err != nil {
 		logger.Error("request failed", err.Error())
 		return
+	} else if resp == nil {
+		logger.Error("request failed", "no error and no response")
 	}
 	if resp.StatusCode == 200 {
-		a.GetStat(workerName).IncrSuccess(1)
+		if a.CheckBodyString != "" {
+			btdata := []byte{}
+			btdata, err := ioutil.ReadAll(resp.Body)
+			if err == nil {
+				bdstr := string(btdata)
+				if strings.Contains(bdstr, a.CheckBodyString) {
+					a.GetStat(workerName).IncrSuccess(1)
+				}
+			}
+
+		} else {
+			a.GetStat(workerName).IncrSuccess(1)
+		}
 	} else {
 		a.GetStat(workerName).IncrFailed(resp.StatusCode, 1)
 	}
@@ -140,18 +156,18 @@ func (a *LoadTest) UnderstandResponse(workerName string, resp *http.Response, er
 	if err != nil || resp == nil {
 		if ve, ok := err.(net.Error); ok && ve.Timeout() {
 			a.GetStat(workerName).IncrTimeout(1)
-			logger.Error("request timeout", "["+workerName+"]" + ve.Error())
-		} else if ve, ok := err.(*valkyrie.MultiError); ok  {
+			logger.Error("request timeout", "["+workerName+"]"+ve.Error())
+		} else if ve, ok := err.(*valkyrie.MultiError); ok {
 			errStr := ve.Error()
 			if err := ve.HasError(); strings.Contains(errStr, "context deadline exceeded") {
 				a.GetStat(workerName).IncrTimeout(1)
-				return errors.New("context timeout => ["+workerName+"]" + err.Error())
+				return errors.New("context timeout => [" + workerName + "]" + err.Error())
 			} else if err := ve.HasError(); strings.Contains(err.Error(), "connect: connection refused") {
 				a.GetStat(workerName).IncrConnRefused(1)
-				return errors.New("connection refused => ["+workerName+"]" + err.Error())
+				return errors.New("connection refused => [" + workerName + "]" + err.Error())
 			} else {
 				a.GetStat(workerName).IncrOtherErrors(1)
-				return errors.New("other errors => ["+workerName+"]" + err.Error())
+				return errors.New("other errors => [" + workerName + "]" + err.Error())
 			}
 		} else {
 			errStr := ""
@@ -159,11 +175,11 @@ func (a *LoadTest) UnderstandResponse(workerName string, resp *http.Response, er
 				errStr = v.Error()
 			}
 			a.GetStat(workerName).IncrFailed(500, 1)
-			return errors.New("other errors => ["+workerName+"]" + errStr)
+			return errors.New("other errors => [" + workerName + "]" + errStr)
 		}
-	} else if resp != nil && resp.StatusCode == 504 {
+	} else if resp.StatusCode == 504 {
 		a.GetStat(workerName).IncrTimeout(1)
-		return errors.New("server timeout => ["+workerName+"]" + "server timeout")
+		return errors.New("server timeout => [" + workerName + "]")
 	}
 	return nil
 }
@@ -183,7 +199,6 @@ func (a *LoadTest) GetHeadersFromArgs(args []string) *http.Header {
 	return hds
 }
 
-
 func (a *LoadTest) MergeAll() stats.StatsCollector {
 	var totalStats stats.StatsCollector
 
@@ -200,7 +215,6 @@ func (a *LoadTest) MergeAll() stats.StatsCollector {
 	totalStats.CalculateExecAverageDuration()
 	return totalStats
 }
-
 
 func (a *LoadTest) PrintGeneralInfo() {
 	var memStats runtime.MemStats

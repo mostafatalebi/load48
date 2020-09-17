@@ -1,19 +1,25 @@
 package core
 
 import (
-	"github.com/gojektech/heimdall/v6/httpclient"
+	"net/http"
 	"sync"
 	"time"
 )
 
 var requestOnce = &sync.Once{}
 var clientOnce = &sync.Once{}
-var client *httpclient.Client
+var client *http.Client
 
-func GetHttpClient(tout time.Duration) *httpclient.Client {
+func GetHttpClient(timeout time.Duration) *http.Client {
 	clientOnce.Do(func() {
 		if client == nil {
-			client = httpclient.NewClient(httpclient.WithHTTPTimeout(tout), httpclient.WithRetryCount(0))
+			tr := &http.Transport{
+				MaxIdleConnsPerHost: 1024,
+				MaxIdleConns: 1024,
+			}
+			client = &http.Client{}
+			client.Timeout = timeout
+			client.Transport = tr
 		}
 	})
 	return client

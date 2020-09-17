@@ -9,4 +9,5 @@ const (
 	FieldUrl = "url"
 	FieldMaxTimeout = "max-timeout"
 	FieldEnableLogs = "enable-logs"
+	CheckBodyString = "check-body-string"
 )
