@@ -24,7 +24,7 @@ type LoadTest struct {
 	ConcurrentWorkers      int
 	PerWorker              int
 	Method                 string
-	CheckBodyString        string
+	AssertBodyString       string
 	Url                    string
 	MaxTimeoutSec          int
 	Headers                *http.Header
@@ -110,12 +110,12 @@ func (a *LoadTest) Send(req *http.Request, tout time.Duration, workerName string
 		logger.Error("request failed", "no error and no response")
 	}
 	if resp.StatusCode == 200 {
-		if a.CheckBodyString != "" {
+		if a.AssertBodyString != "" {
 			btdata := []byte{}
 			btdata, err := ioutil.ReadAll(resp.Body)
 			if err == nil {
 				bdstr := string(btdata)
-				if strings.Contains(bdstr, a.CheckBodyString) {
+				if strings.Contains(bdstr, a.AssertBodyString) {
 					a.GetStat(workerName).IncrSuccess(1)
 				}
 			}
