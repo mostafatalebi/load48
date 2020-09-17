@@ -334,21 +334,39 @@ func (s *StatsCollector) Merge(scp *StatsCollector) StatsCollector {
 		}
 		switch key {
 		case TotalSent:
+			if value == nil {
+				value = 0
+			}
 			vv := value.(int64)
 			s.IncrTotalSent(vv)
 		case Timeout:
+			if value == nil {
+				value = 0
+			}
 			vv := value.(int64)
 			s.IncrTimeout(vv)
 		case ConnRefused:
+			if value == nil {
+				value = 0
+			}
 			vv := value.(int64)
 			s.IncrConnRefused(vv)
 		case OtherErrors:
+			if value == nil {
+				value = 0
+			}
 			vv := value.(int64)
 			s.IncrOtherErrors(vv)
 		case Success:
+			if value == nil {
+				value = 0
+			}
 			vv := value.(int64)
 			s.IncrSuccess(vv)
 		case CacheUsed:
+			if value == nil {
+				value = 0
+			}
 			vv := value.(int64)
 			s.IncrCacheUsed(vv)
 		case ExecDuration:
