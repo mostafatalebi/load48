@@ -9,6 +9,7 @@ import (
 	"github.com/mostafatalebi/loadtest/pkg/assertions"
 	"github.com/mostafatalebi/loadtest/pkg/config"
 	"github.com/mostafatalebi/loadtest/pkg/logger"
+	print2 "github.com/mostafatalebi/loadtest/pkg/print"
 	"github.com/mostafatalebi/loadtest/pkg/stats"
 	"go.uber.org/atomic"
 	"io/ioutil"
@@ -82,7 +83,7 @@ func (ld *LoadTest) Process() error {
 	ld.publishRequestsToChannel()
 	ld.testStartTime = time.Now()
 	wg := &sync.WaitGroup{}
-	logger.Info("Test Status", fmt.Sprintf("starting workers(%v)", ld.Config.Concurrency))
+	logger.Info("Test Status", fmt.Sprintf("starting...", ld.Config.Concurrency))
 	var bt = []byte(ld.Config.FormBody)
 	bd := bytes.NewBuffer(bt)
 	req, err := http.NewRequest(ld.Config.Method, ld.Config.Url, bd)
@@ -166,6 +167,7 @@ func (ld *LoadTest) Send(req *http.Request, tout time.Duration, profileName stri
 	ld.GetStat(profileName).AddMainDuration(dur)
 	ld.GetStat(profileName).AddLongestDuration(dur)
 	ld.GetStat(profileName).AddShortestDuration(dur)
+	print2.ProgressByPercent(ld.Config.NumberOfRequests, ld.GetStat("default").GetTotal())
 }
 
 func (ld *LoadTest) UnderstandResponse(profileName string, resp *http.Response, err interface{}) error {
