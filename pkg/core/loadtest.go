@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/gojektech/valkyrie"
 	dyanmic_params "github.com/mostafatalebi/dynamic-params"
+	"github.com/mostafatalebi/loadtest/pkg/config"
 	"github.com/mostafatalebi/loadtest/pkg/logger"
 	"github.com/mostafatalebi/loadtest/pkg/stats"
 	"go.uber.org/atomic"
@@ -22,6 +23,7 @@ import (
 var statsMapMx = sync.RWMutex{}
 
 type LoadTest struct {
+	Config *config.Config
 	MaxConcurrentRequests     int64
 	currentConcurrentRequests atomic.Int64
 	NumberOfRequests          int64
@@ -41,11 +43,21 @@ type LoadTest struct {
 	requestChan			   chan int64
 }
 
-func NewAdGetLoadTest() *LoadTest {
+func NewLoadTest(cnf *config.Config) *LoadTest {
 	l := &LoadTest{
-		Lock:  &sync.RWMutex{},
-		Url:   "",
-		Stats: dyanmic_params.NewDynamicParams(dyanmic_params.SrcNameInternal, &sync.RWMutex{}),
+		MaxConcurrentRequests:     cnf.Concurrency,
+		NumberOfRequests:          cnf.NumberOfRequests,
+		Method:                    cnf.Method,
+		AssertBodyString:          cnf.AssertBodyString,
+		Url:                       cnf.Url,
+		MaxTimeoutSec:             cnf.MaxTimeout,
+		ExecDurationHeaderName:    cnf.ExecDurationHeaderName,
+		CacheUsageHeaderName:      cnf.CacheUsageHeaderName,
+		EnableLogs:                cnf.EnabledLogs,
+		Stats:                     dyanmic_params.NewDynamicParams(dyanmic_params.SrcNameInternal, &sync.RWMutex{}),
+		Lock:                      &sync.RWMutex{},
+		testStartTime:             time.Time{},
+		requestChan:               nil,
 	}
 	l.currentConcurrentRequests.Add(0)
 	return l
