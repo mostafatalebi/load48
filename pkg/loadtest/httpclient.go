@@ -1,4 +1,4 @@
-package core
+package loadtest
 
 import (
 	"net/http"

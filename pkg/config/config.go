@@ -1,5 +1,10 @@
 package config
 
+import (
+	"github.com/mostafatalebi/loadtest/pkg/assertions"
+	"net/http"
+)
+
 const (
 	FieldExecDurationHeaderName = "exec-duration-header-name"
 	FieldCacheUsageHeaderName   = "cache-usage-header-name"
@@ -9,6 +14,7 @@ const (
 	FieldUrl                    = "url"
 	FieldMaxTimeout             = "max-timeout"
 	FieldEnableLogs             = "enable-logs"
+	FieldFormBody             = "form-body"
 	FieldAssertBodyString       = "assert-body-string"
 )
 
@@ -20,7 +26,9 @@ type Config struct {
 	Url string
 	MaxTimeout int
 	EnabledLogs bool
-	Assertions map[string]interface{}
+	Assertions *assertions.AssertionManager
+	Headers http.Header
+	FormBody string
 
 	ExecDurationHeaderName string
 	CacheUsageHeaderName   string
@@ -29,8 +37,8 @@ type Config struct {
 
 type ConfigReader interface {
 	LoadConfig(vars ...interface{}) (*Config, error)
-	ParseAssertion() (map[string]interface{}, error)
-	ParseHeaders()
+	ParseAssertions() (*assertions.AssertionManager, error)
+	ParseHeaders() (http.Header, error)
 }
 
 func NewConfig(configType string) ConfigReader {

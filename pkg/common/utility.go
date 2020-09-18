@@ -10,3 +10,4 @@ func ExistsStrInArray(str string, arr []string) bool {
 	}
 	return false
 }
+

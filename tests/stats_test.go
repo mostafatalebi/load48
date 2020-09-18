@@ -2,7 +2,7 @@ package tests
 
 import (
 	"github.com/gojektech/valkyrie"
-	"github.com/mostafatalebi/loadtest/pkg/core"
+	"github.com/mostafatalebi/loadtest/pkg/loadtest"
 	"github.com/mostafatalebi/loadtest/pkg/stats"
 	"github.com/stretchr/testify/assert"
 	"sync"
@@ -63,7 +63,7 @@ func TestTimeOutCounterConcurrent_mustBeTrue(t *testing.T){
 }
 
 func TestMergingStats(t *testing.T){
-	lt := core.NewLoadTest()
+	lt := loadtest.NewLoadTest(nil)
 	st := stats.NewStatsManager("test_1")
 	st2 := stats.NewStatsManager("test_2")
 	st3 := stats.NewStatsManager("test_3")
@@ -104,7 +104,7 @@ func TestMergingStats(t *testing.T){
 	assert.Equal(t, int64(10000*3), v)
 }
 func TestMergingStats_onlyLastGroutineHasTimeout(t *testing.T){
-	lt := core.NewLoadTest()
+	lt := loadtest.NewLoadTest(nil)
 	st := stats.NewStatsManager("test_1")
 	st2 := stats.NewStatsManager("test_2")
 	st3 := stats.NewStatsManager("test_3")
@@ -146,7 +146,7 @@ func TestMergingStats_onlyLastGroutineHasTimeout(t *testing.T){
 }
 
 func TestErrorStrForFailedRequests(t *testing.T){
-	lt := core.NewLoadTest()
+	lt := loadtest.NewLoadTest(nil)
 	st := stats.NewStatsManager("test_1")
 
 	lt.AddStat("test_1", st)
