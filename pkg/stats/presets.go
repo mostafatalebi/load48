@@ -11,4 +11,5 @@ var DefaultPresetWithAutoFailedCodes = map[string]string{
 	ShortestExecDuration: "Shortest App Execution",
 	LongestDuration:      "Longest Duration",
 	LongestExecDuration:  "Longest App Execution",
+	MaxConcurrencyAchieved:  "Max Concurrency Achieved",
 }

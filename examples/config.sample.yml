@@ -1,0 +1,11 @@
+stages:
+  testName:
+    concurrency: 5
+    request-count: 25
+    url: http://example.com
+    headers:
+      Origin: test.com
+      Content-Type: text/html
+    assertions:
+      body-string: "text in the body"
+

@@ -29,6 +29,7 @@ type Config struct {
 	Assertions *assertions.AssertionManager
 	Headers http.Header
 	FormBody string
+	LogFileDirectory string
 
 	ExecDurationHeaderName string
 	CacheUsageHeaderName   string

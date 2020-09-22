@@ -11,35 +11,35 @@ import (
 )
 
 const (
-	TargetCount       = "target-count"
-	TotalSent       = "total-sent"
-	CacheUsed       = "cache-used"
-	Success         = "success"
-	Timeout         = "timeout"
-	ConnRefused     = "connection-refused"
-	OtherErrors     = "other-errors"
-	Failed          = "%v"
-	MainDuration    = "main-duration"
-	ExecDuration    = "exec-duration"
-	LongestDuration = "longest-duration"
-	AverageDuration = "average-duration"
-	ShortestDuration     = "shortest-duration"
-	LongestExecDuration  = "longest-exec-duration"
-	AverageExecDuration  = "average-exec-duration"
-	ShortestExecDuration = "shortest-exec-duration"
+	TargetCount            = "target-count"
+	TotalSent              = "total-sent"
+	MaxConcurrencyAchieved = "max-concurrency-achieved"
+	CacheUsed              = "cahce-used"
+	Success                = "success"
+	Timeout                = "timeout"
+	ConnRefused            = "connection-refused"
+	OtherErrors            = "other-errors"
+	Failed                 = "%v"
+	MainDuration           = "main-duration"
+	ExecDuration           = "exec-duration"
+	LongestDuration        = "longest-duration"
+	AverageDuration        = "average-duration"
+	ShortestDuration       = "shortest-duration"
+	LongestExecDuration    = "longest-exec-duration"
+	AverageExecDuration    = "average-exec-duration"
+	ShortestExecDuration   = "shortest-exec-duration"
 )
 
-
-var DefaultAllowedStatParams = []string{TargetCount,TotalSent,CacheUsed,Success,Timeout,
-	ConnRefused,OtherErrors,Failed,MainDuration,ExecDuration,LongestDuration,AverageDuration,
-	ShortestDuration,LongestExecDuration,AverageExecDuration,ShortestExecDuration,
+var DefaultAllowedStatParams = []string{TargetCount, TotalSent, CacheUsed, Success, Timeout,
+	ConnRefused, OtherErrors, Failed, MainDuration, ExecDuration, LongestDuration, AverageDuration,
+	ShortestDuration, LongestExecDuration, AverageExecDuration, ShortestExecDuration,
 }
 
 type StatsCollector struct {
-	lock   *sync.Mutex
-	Key    string
+	lock          *sync.Mutex
+	Key           string
 	AllowedParams []string
-	Params *dyanmic_params.DynamicParams
+	Params        *dyanmic_params.DynamicParams
 }
 
 //
@@ -47,9 +47,9 @@ func NewStatsManager(key string) *StatsCollector {
 	params := dyanmic_params.NewDynamicParams(dyanmic_params.SrcNameInternal, &sync.RWMutex{})
 	return &StatsCollector{
 		AllowedParams: DefaultAllowedStatParams,
-		lock:   &sync.Mutex{},
-		Key:    key,
-		Params: params,
+		lock:          &sync.Mutex{},
+		Key:           key,
+		Params:        params,
 	}
 }
 
@@ -172,6 +172,19 @@ func (s *StatsCollector) IncrTotalSent(incr int64) {
 		return
 	}
 	s.Params.Add(TotalSent, v+incr)
+}
+
+func (s *StatsCollector) IncrMaxConcurrencyAchieved(currentValue int64) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	v, err := s.Params.GetAsInt64(MaxConcurrencyAchieved)
+	if err != nil && err.Error() != dyanmic_params.ErrNotFound {
+		return
+	} else if err != nil && err.Error() == dyanmic_params.ErrNotFound {
+		s.Params.Add(MaxConcurrencyAchieved, currentValue)
+		return
+	}
+	s.Params.Add(MaxConcurrencyAchieved, v+currentValue)
 }
 
 func (s *StatsCollector) IncrFailed(failureCode int, incr int64) {
@@ -312,8 +325,6 @@ func (s *StatsCollector) AddExecShortestDuration(duration time.Duration) {
 	}
 }
 
-
-
 func (s *StatsCollector) Merge(scp *StatsCollector) StatsCollector {
 	if scp.Params == nil {
 		return *s
@@ -322,7 +333,6 @@ func (s *StatsCollector) Merge(scp *StatsCollector) StatsCollector {
 		if !scp.Params.Has(key) && !common.ExistsStrInArray(key, s.AllowedParams) {
 			return
 		}
-
 
 		value := scp.Params.Get(key)
 
@@ -342,6 +352,15 @@ func (s *StatsCollector) Merge(scp *StatsCollector) StatsCollector {
 				vv = 0
 			}
 			s.IncrTotalSent(vv)
+		case MaxConcurrencyAchieved:
+			if value == nil {
+				value = 0
+			}
+			vv, ok := value.(int64)
+			if !ok {
+				vv = 0
+			}
+			s.IncrMaxConcurrencyAchieved(vv)
 		case Timeout:
 			if value == nil {
 				value = 0

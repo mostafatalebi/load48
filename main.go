@@ -1,12 +1,13 @@
 package main
 
 import (
+	"fmt"
 	"github.com/mostafatalebi/dynamic-params"
 	"github.com/mostafatalebi/loadtest/pkg/config"
 	"github.com/mostafatalebi/loadtest/pkg/loadtest"
-	"github.com/mostafatalebi/loadtest/pkg/stats"
 	"log"
 	"os"
+	"os/signal"
 )
 
 var Version = ""
@@ -34,12 +35,9 @@ func main() {
 		log.Panic("cannot understand config type, 'cli' and 'yml' are supported")
 	}
 	lt := loadtest.NewLoadTest(cnf)
-	err = lt.Process()
-	if err != nil {
-		log.Panic(err)
-	}
-	st := lt.MergeAll()
-	st.PrintPretty(stats.DefaultPresetWithAutoFailedCodes)
+	initCancelInterrupt()
+	lt.StartWorkers()
+	lt.PrintWorkersStats()
 	lt.PrintGeneralInfo()
 }
 
@@ -53,4 +51,17 @@ func CheckCommandEntry() {
 		os.Exit(0)
 		return
 	}
+}
+
+func initCancelInterrupt() {
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	go func(){
+		for sig := range c {
+			if sig == os.Interrupt {
+				fmt.Printf("Shutting down the test...\n")
+				os.Exit(1)
+			}
+		}
+	}()
 }
