@@ -40,6 +40,7 @@ type RequestWorker struct {
 	requestChan            chan int64
 	currentConcurrencyNum  atomic.Int64
 	progress               *progress.ProgressIndicator
+	logFileName            string
 }
 
 func NewRequestWorker(cnf *config.Config) *RequestWorker {
@@ -66,6 +67,7 @@ func NewRequestWorker(cnf *config.Config) *RequestWorker {
 		if err != nil {
 			panic(err)
 		}
+		r.logFileName = logFileName
 	}
 	r.requestChan = make(chan int64, r.Config.Concurrency)
 	go r.CalculateMaxConcurrency()
@@ -85,6 +87,7 @@ func (r *RequestWorker) Do() error {
 	r.testStartTime = time.Now()
 	wg := &sync.WaitGroup{}
 	logger.InfoOut("Test Status", fmt.Sprintf("session start: %v", r.SessionName))
+	logger.InfoOut("Logfile", r.logFileName)
 	var bt = []byte(r.Config.FormBody)
 	bd := bytes.NewBuffer(bt)
 	req, err := http.NewRequest(r.Config.Method, r.Config.Url, bd)
