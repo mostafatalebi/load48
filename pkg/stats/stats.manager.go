@@ -174,7 +174,7 @@ func (s *StatsCollector) IncrTotalSent(incr int64) {
 	s.Params.Add(TotalSent, v+incr)
 }
 
-func (s *StatsCollector) IncrMaxConcurrencyAchieved(currentValue int64) {
+func (s *StatsCollector) UpdateMaxConcurrencyAchieved(currentValue int64) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	v, err := s.Params.GetAsInt64(MaxConcurrencyAchieved)
@@ -184,7 +184,9 @@ func (s *StatsCollector) IncrMaxConcurrencyAchieved(currentValue int64) {
 		s.Params.Add(MaxConcurrencyAchieved, currentValue)
 		return
 	}
-	s.Params.Add(MaxConcurrencyAchieved, v+currentValue)
+	if v < currentValue {
+		s.Params.Add(MaxConcurrencyAchieved, currentValue)
+	}
 }
 
 func (s *StatsCollector) IncrFailed(failureCode int, incr int64) {
@@ -360,7 +362,7 @@ func (s *StatsCollector) Merge(scp *StatsCollector) StatsCollector {
 			if !ok {
 				vv = 0
 			}
-			s.IncrMaxConcurrencyAchieved(vv)
+			s.UpdateMaxConcurrencyAchieved(vv)
 		case Timeout:
 			if value == nil {
 				value = 0

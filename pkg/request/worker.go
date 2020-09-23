@@ -32,9 +32,11 @@ type RequestWorker struct {
 	concurrencyMaxAchieved atomic.Int64
 	Stats                  *dyanmic_params.DynamicParams
 	Lock                   *sync.RWMutex
+	LockConcurrencyStat		   *sync.Mutex
+	eventCCChanged		   chan int64
 	testStartTime          time.Time
 	requestChan            chan int64
-	concMaxAchChn          chan int8
+	currentConcurrencyNum  atomic.Int64
 }
 
 func NewRequestWorker(cnf *config.Config) *RequestWorker {
@@ -44,10 +46,12 @@ func NewRequestWorker(cnf *config.Config) *RequestWorker {
 		SessionName:   sessionName,
 		Stats:         dyanmic_params.NewDynamicParams(dyanmic_params.SrcNameInternal, &sync.RWMutex{}),
 		Lock:          &sync.RWMutex{},
+		LockConcurrencyStat: &sync.Mutex{},
+		eventCCChanged: make(chan int64),
 		testStartTime: time.Time{},
 		requestChan:   nil,
 	}
-	r.concMaxAchChn = make(chan int8, 10)
+
 	if cnf.EnabledLogs != true {
 		logger.LogEnabled = false
 	} else {
@@ -87,6 +91,8 @@ func (r *RequestWorker) Do() error {
 		go func() {
 			defer func() { <-r.requestChan }()
 			defer wg.Done()
+			defer r.UpdateConcurrentReqNum(-1)
+			r.UpdateConcurrentReqNum(1)
 			r.GetStat(DefaultStatsContainer).IncrSuccess(0)
 			if err != nil {
 				logger.Error("creating request object failed", err.Error())
@@ -108,8 +114,8 @@ func (r *RequestWorker) sendRequest(req *http.Request, tout time.Duration, profi
 	if resp != nil {
 		defer resp.Body.Close()
 	}
-	r.GetStat(profileName).IncrTotalSent(1)
 	err = r.HandleResponse(profileName, resp, err)
+
 	if err != nil {
 		logger.Error("request failed", err.Error())
 		return
@@ -132,7 +138,6 @@ func (r *RequestWorker) sendRequest(req *http.Request, tout time.Duration, profi
 		_ = r.Config.Assertions.Get(assertions.AssertStatusIsOk).SetTest(resp.StatusCode)
 		if err := r.Config.Assertions.ChainRunner(assertions.AssertStatusIsOk, assertions.AssertBodyString); err == nil {
 			r.GetStat(profileName).IncrSuccess(1)
-			r.PublishForCalculatingConcurrency(1)
 		} else {
 			r.GetStat(profileName).IncrFailed(resp.StatusCode, 1)
 		}
@@ -171,18 +176,21 @@ func (r *RequestWorker) HandleResponse(profileName string, resp *http.Response, 
 			r.GetStat(profileName).IncrTimeout(1)
 			logger.Error("request timeout", "["+profileName+"]"+ve.Error())
 		} else if ve, ok := err.(net.Error); ok && !ve.Timeout() {
-			r.GetStat(profileName).IncrTimeout(1)
+			r.GetStat(profileName).IncrOtherErrors(1)
 			logger.Error("request timeout", "["+profileName+"]"+ve.Error())
 		} else if ve, ok := err.(*valkyrie.MultiError); ok {
 			errStr := ve.Error()
 			if err := ve.HasError(); strings.Contains(errStr, "context deadline exceeded") {
 				r.GetStat(profileName).IncrTimeout(1)
+				r.GetStat(profileName).IncrTotalSent(1)
 				return errors.New("context timeout => [" + profileName + "]" + err.Error())
 			} else if err := ve.HasError(); strings.Contains(err.Error(), "connect: connection refused") {
 				r.GetStat(profileName).IncrConnRefused(1)
+				r.GetStat(profileName).IncrTotalSent(1)
 				return errors.New("connection refused => [" + profileName + "]" + err.Error())
 			} else {
 				r.GetStat(profileName).IncrOtherErrors(1)
+				r.GetStat(profileName).IncrTotalSent(1)
 				return errors.New("other errors => [" + profileName + "]" + err.Error())
 			}
 		} else {
@@ -191,12 +199,11 @@ func (r *RequestWorker) HandleResponse(profileName string, resp *http.Response, 
 				errStr = v.Error()
 			}
 			r.GetStat(profileName).IncrFailed(500, 1)
-			r.PublishForCalculatingConcurrency(1)
+			r.GetStat(profileName).IncrTotalSent(1)
 			return errors.New("other errors => [" + profileName + "]" + errStr)
 		}
 	} else if resp.StatusCode == 504 {
 		r.GetStat(profileName).IncrTimeout(1)
-		r.PublishForCalculatingConcurrency(1)
 		return errors.New("server timeout => [" + profileName + "]")
 	}
 	return nil
@@ -221,18 +228,22 @@ func (r *RequestWorker) GetStat(name string) *stats.StatsCollector {
 
 // the value is a signed +1 or -1, and the worker on the other end
 // uses this value to calculate max concurrency achieved
-func (r *RequestWorker) PublishForCalculatingConcurrency(val int8) {
+func (r *RequestWorker) UpdateConcurrentReqNum(val int8) {
+	r.LockConcurrencyStat.Lock()
+	defer r.LockConcurrencyStat.Unlock()
 	if val != -1 && val != 1 {
 		return
+	} else if val == 1 {
+		r.currentConcurrencyNum.Add(int64(val))
+	} else if val == -1 {
+		r.currentConcurrencyNum.Add(int64(val))
 	}
-	r.concMaxAchChn <- val
+	r.eventCCChanged <- r.currentConcurrencyNum.Load()
 }
 
 func (r *RequestWorker) CalculateMaxConcurrency() {
-	for cl := range r.concMaxAchChn {
-		if cl == 1 {
-			r.GetStat(DefaultStatsContainer).IncrMaxConcurrencyAchieved(1)
-		}
+	for sig := range r.eventCCChanged {
+		r.GetStat(DefaultStatsContainer).UpdateMaxConcurrencyAchieved(sig)
 	}
 }
 func (r *RequestWorker) MergeAll() stats.StatsCollector {
