@@ -9,8 +9,8 @@ import (
 	"github.com/mostafatalebi/loadtest/pkg/assertions"
 	"github.com/mostafatalebi/loadtest/pkg/config"
 	"github.com/mostafatalebi/loadtest/pkg/logger"
-	print2 "github.com/mostafatalebi/loadtest/pkg/print"
 	"github.com/mostafatalebi/loadtest/pkg/stats"
+	"github.com/mostafatalebi/loadtest/pkg/stats/progress"
 	"github.com/rs/xid"
 	"go.uber.org/atomic"
 	"io/ioutil"
@@ -29,27 +29,32 @@ type RequestWorker struct {
 	Config                 *config.Config
 	SessionName            string
 	MaxConcurrentRequests  int64
+	TotalRequestsAttempted chan int8
 	concurrencyMaxAchieved atomic.Int64
 	Stats                  *dyanmic_params.DynamicParams
 	Lock                   *sync.RWMutex
-	LockConcurrencyStat		   *sync.Mutex
-	eventCCChanged		   chan int64
+	LockConcurrencyStat    *sync.Mutex
+	eventRequestAttempted  chan int8
+	eventCCChanged         chan int64
 	testStartTime          time.Time
 	requestChan            chan int64
 	currentConcurrencyNum  atomic.Int64
+	progress               *progress.ProgressIndicator
 }
 
 func NewRequestWorker(cnf *config.Config) *RequestWorker {
 	var sessionName = xid.New().String()
 	r := &RequestWorker{
-		Config:        cnf,
-		SessionName:   sessionName,
-		Stats:         dyanmic_params.NewDynamicParams(dyanmic_params.SrcNameInternal, &sync.RWMutex{}),
-		Lock:          &sync.RWMutex{},
-		LockConcurrencyStat: &sync.Mutex{},
-		eventCCChanged: make(chan int64),
-		testStartTime: time.Time{},
-		requestChan:   nil,
+		Config:                cnf,
+		SessionName:           sessionName,
+		Stats:                 dyanmic_params.NewDynamicParams(dyanmic_params.SrcNameInternal, &sync.RWMutex{}),
+		Lock:                  &sync.RWMutex{},
+		LockConcurrencyStat:   &sync.Mutex{},
+		eventRequestAttempted: make(chan int8),
+		eventCCChanged:        make(chan int64),
+		testStartTime:         time.Time{},
+		requestChan:           nil,
+		progress:              progress.NewProgressIndicator(cnf.NumberOfRequests),
 	}
 
 	if cnf.EnabledLogs != true {
@@ -64,6 +69,7 @@ func NewRequestWorker(cnf *config.Config) *RequestWorker {
 	}
 	r.requestChan = make(chan int64, r.Config.Concurrency)
 	go r.CalculateMaxConcurrency()
+	go r.progress.ListenToChannel(r.eventRequestAttempted)
 	return r
 }
 
@@ -92,6 +98,7 @@ func (r *RequestWorker) Do() error {
 			defer func() { <-r.requestChan }()
 			defer wg.Done()
 			defer r.UpdateConcurrentReqNum(-1)
+			r.eventRequestAttempted <- 1
 			r.UpdateConcurrentReqNum(1)
 			r.GetStat(DefaultStatsContainer).IncrSuccess(0)
 			if err != nil {
@@ -167,7 +174,6 @@ func (r *RequestWorker) sendRequest(req *http.Request, tout time.Duration, profi
 	r.GetStat(profileName).AddMainDuration(dur)
 	r.GetStat(profileName).AddLongestDuration(dur)
 	r.GetStat(profileName).AddShortestDuration(dur)
-	print2.ProgressByPercent(r.Config.NumberOfRequests, r.GetStat(DefaultStatsContainer).GetTotal())
 }
 
 func (r *RequestWorker) HandleResponse(profileName string, resp *http.Response, err interface{}) error {
@@ -206,6 +212,7 @@ func (r *RequestWorker) HandleResponse(profileName string, resp *http.Response, 
 		r.GetStat(profileName).IncrTimeout(1)
 		return errors.New("server timeout => [" + profileName + "]")
 	}
+	r.GetStat(profileName).IncrTotalSent(1)
 	return nil
 }
 

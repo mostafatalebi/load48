@@ -7,7 +7,7 @@ import (
 )
 
 func TestAssertionsChainRunner(t *testing.T) {
-	ass := assertions.NewAssertionManager(map[string]assertions.Assertion{
+	ass := assertions.NewAssertionManagerWithDefaults(map[string]assertions.Assertion{
 		assertions.AssertBodyString : assertions.NewAssertionFromName(assertions.AssertBodyString),
 		assertions.AssertStatusIsOk : assertions.NewAssertionFromName(assertions.AssertStatusIsOk),
 	})
@@ -25,7 +25,7 @@ func TestAssertionsChainRunner(t *testing.T) {
 }
 
 func TestAssertionsChainRunner_musReturnError(t *testing.T) {
-	ass := assertions.NewAssertionManager(map[string]assertions.Assertion{
+	ass := assertions.NewAssertionManagerWithDefaults(map[string]assertions.Assertion{
 		assertions.AssertBodyString : assertions.NewAssertionFromName(assertions.AssertBodyString),
 		assertions.AssertStatusIsOk : assertions.NewAssertionFromName(assertions.AssertStatusIsOk),
 	})
@@ -44,7 +44,7 @@ func TestAssertionsChainRunner_musReturnError(t *testing.T) {
 }
 
 func TestAssertionsChainRunner_musSkipNonExistingAssertion(t *testing.T) {
-	ass := assertions.NewAssertionManager(map[string]assertions.Assertion{
+	ass := assertions.NewAssertionManagerWithDefaults(map[string]assertions.Assertion{
 		//assertions.AssertBodyString : assertions.NewAssertionFromName(assertions.AssertBodyString),
 		assertions.AssertStatusIsOk : assertions.NewAssertionFromName(assertions.AssertStatusIsOk),
 	})

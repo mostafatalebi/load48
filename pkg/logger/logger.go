@@ -32,17 +32,20 @@ var logFile *os.File
 func Initialize(logMode string, fileName string) error {
 	initialized = true
 	var err error
-	if logFile == nil {
-		dir := path.Dir(fileName)
-		err = os.Mkdir(dir, os.FileMode(0775))
-		if err != nil  && !strings.Contains(err.Error(), "exists") {
-			return err
-		}
-		logFile, err = os.OpenFile(fileName, os.O_CREATE|os.O_APPEND|os.O_RDWR, os.FileMode(0644))
-		if err != nil {
-			return err
+	if logMode == LogModeFile {
+		if logFile == nil {
+			dir := path.Dir(fileName)
+			err = os.Mkdir(dir, os.FileMode(0775))
+			if err != nil  && !strings.Contains(err.Error(), "exists") {
+				return err
+			}
+			logFile, err = os.OpenFile(fileName, os.O_CREATE|os.O_APPEND|os.O_RDWR, os.FileMode(0644))
+			if err != nil {
+				return err
+			}
 		}
 	}
+
 	go func() {
 		sendLogMessage(logMode, logFile)
 	}()

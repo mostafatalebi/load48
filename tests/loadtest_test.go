@@ -11,6 +11,7 @@ import (
 var listenAddrPort = "13756"
 
 func TestMain(m *testing.M) {
+	logger.Initialize(logger.LogModeStdErr, "")
 	ls, err := net.Listen("tcp", ":"+listenAddrPort)
 	if err != nil {
 		panic("failed to run the test, cannot create test http server: "+err.Error())
@@ -36,6 +37,8 @@ func TestMain(m *testing.M) {
 			panic(err)
 		}
 	}()
+
+
 	os.Exit(m.Run())
 }
 
