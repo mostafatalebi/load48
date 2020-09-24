@@ -3,6 +3,7 @@ package assertions
 import (
 	"errors"
 	"fmt"
+	"github.com/mostafatalebi/loadtest/pkg/logger"
 )
 
 type AssertionManager struct {
@@ -61,6 +62,7 @@ func (a *AssertionManager) ChainRunner(names ...string) error {
 		if a.Exists(v) {
 			anyExists = true
 			if err := a.Run(v); err != nil {
+				logger.Error("assertion failed ["+v+"]", err)
 				return err
 			}
 		}

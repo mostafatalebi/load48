@@ -149,7 +149,7 @@ func (r *RequestWorker) sendRequest(req *http.Request, tout time.Duration, profi
 		if err := r.Config.Assertions.ChainRunner(assertions.AssertStatusIsOk, assertions.AssertBodyString); err == nil {
 			r.GetStat(profileName).IncrSuccess(1)
 		} else {
-			r.GetStat(profileName).IncrFailed(resp.StatusCode, 1)
+			r.GetStat(profileName).IncrOtherErrors(1)
 		}
 	}
 

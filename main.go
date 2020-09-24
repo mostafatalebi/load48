@@ -16,25 +16,31 @@ func main() {
 	CheckCommandEntry()
 	cp := dyanmic_params.NewDynamicParams(dyanmic_params.SrcNameArgs, os.Args)
 	configType, _ := cp.GetAsString("config")
-	var cnf *config.Config
+	var cnf []*config.Config
 	var err error
 	if configType == "cli" || configType == ""  {
 		var configLoader = config.NewConfig("cli")
-		cnf, err = configLoader.LoadConfig(os.Args)
+		cnf, err = configLoader.LoadConfigs(os.Args)
 		if err != nil {
 			log.Print("incorrect config", err.Error())
 			return
 		}
-	} else if configType == "yml" {
-
+	} else if configType == "yaml" {
+		fileName, _ := cp.GetAsString("file")
+		var configLoader = config.NewConfig("yaml")
+		cnf, err = configLoader.LoadConfigs(fileName)
+		if err != nil {
+			log.Print("incorrect config", err.Error())
+			return
+		}
 	} else if configType != "" {
-		log.Panic("type must be either 'cli' or 'config'")
+		log.Panic("no supported config: cli, yaml [or leave it empty for cli]'")
 	}
 
 	if cnf == nil {
 		log.Panic("cannot understand config type, 'cli' and 'yml' are supported")
 	}
-	lt := loadtest.NewLoadTest(cnf)
+	lt := loadtest.NewLoadTest(cnf...)
 	initCancelInterrupt()
 	lt.StartWorkers()
 	lt.PrintWorkersStats()

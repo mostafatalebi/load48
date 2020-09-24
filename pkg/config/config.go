@@ -20,34 +20,48 @@ const (
 
 
 type Config struct {
-	Concurrency int64
-	NumberOfRequests int64
-	Method string
-	Url string
-	MaxTimeout int
-	EnabledLogs bool
-	Assertions *assertions.AssertionManager
-	Headers http.Header
-	FormBody string
-	LogFileDirectory string
-
-	ExecDurationHeaderName string
-	CacheUsageHeaderName   string
+	Concurrency int64 `yaml:"concurrency"`
+	NumberOfRequests int64 `yaml:"request-count"`
+	Method string `yaml:"method"`
+	Url string `yaml:"url"`
+	MaxTimeout int `yaml:"max-timeout"`
+	EnabledLogs bool `yaml:"enable-logs"`
+	Assertions *assertions.AssertionManager `yaml:"assertions"`
+	Headers http.Header `yaml:"headers"`
+	FormBody string `yaml:"form-body"`
+	LogFileDirectory string `yaml:"log-dir"`
+	ExecDurationHeaderName string `yaml:"exec-duration-header-name"`
+	CacheUsageHeaderName   string `yaml:"cache-usage-header-name"`
 }
 
 
 type ConfigReader interface {
-	LoadConfig(vars ...interface{}) (*Config, error)
-	ParseAssertions() (*assertions.AssertionManager, error)
-	ParseHeaders() (http.Header, error)
+	LoadConfigs(vars ...interface{}) ([]*Config, error)
+	ParseAssertions(data map[string]string) (*assertions.AssertionManager, error)
+	ParseHeaders(data map[string]string) (http.Header, error)
+	//Validate() []error
 }
 
 func NewConfig(configType string) ConfigReader {
-	if configType == "yml" {
-
+	if configType == "yaml" {
+		return NewConfigYaml()
 	} else if configType == "cli" {
 		return NewConfigCli()
 	}
 	return nil
+}
+
+
+type ConfigStages struct {
+	collection map[string]*Config
+	current int
+}
+
+func NewConfigStages(stages map[string]*Config) {
+
+}
+
+func (cs *ConfigStages) Next() bool {
+	return false
 }
 

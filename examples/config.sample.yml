@@ -1,11 +1,14 @@
-stages:
-  testName:
-    concurrency: 5
-    request-count: 25
-    url: http://example.com
-    headers:
-      Origin: test.com
-      Content-Type: text/html
-    assertions:
-      body-string: "text in the body"
+testName:
+  concurrency: 5
+  request-count: 25
+  url: http://example.com
+  headers:
+    Origin: test.com
+    Content-Type: text/html
+  assertions:
+    body-string: "text in the body"
+  exec-duration-header-name: ""
+  cache-usage-header-name: ""
+  enable-logs: true
+
 

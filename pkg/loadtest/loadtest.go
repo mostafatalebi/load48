@@ -19,12 +19,17 @@ type LoadTest struct {
 	requestChan chan int64
 }
 
-
-func NewLoadTest(cnf *config.Config) *LoadTest {
+// each config means a new worker
+func NewLoadTest(configs ...*config.Config) *LoadTest {
+	if len(configs) == 0 {
+		panic("at least one config must be specified")
+	}
 	l := &LoadTest{
 		workers: make([]*request.RequestWorker, 0),
 	}
-	l.workers = append(l.workers, request.NewRequestWorker(cnf))
+	for _, cc := range configs {
+		l.workers = append(l.workers, request.NewRequestWorker(cc))
+	}
 
 	return l
 }

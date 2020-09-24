@@ -17,7 +17,7 @@ func NewConfigCli() *ConfigCli {
 	return &ConfigCli{}
 }
 
-func (c *ConfigCli) LoadConfig(vars ...interface{}) (*Config, error) {
+func (c *ConfigCli) LoadConfigs(vars ...interface{}) ([]*Config, error) {
 	args := make([]string, 0)
 	if vars == nil || len(vars) == 0 {
 		return nil, errors.New("os.Args is need as first param")
@@ -38,22 +38,23 @@ func (c *ConfigCli) LoadConfig(vars ...interface{}) (*Config, error) {
 	cnf.CacheUsageHeaderName, _ = cp.GetAsString(FieldCacheUsageHeaderName)
 	cnf.MaxTimeout, _ = cp.GetStringAsInt(FieldMaxTimeout)
 	cnf.EnabledLogs, _ = cp.GetStringAsBool(FieldEnableLogs)
-	cnf.Assertions, err = c.ParseAssertions()
+	var assertionsMap = GetMapValuesFromArgs("--assert-", c.rawArgs)
+	cnf.Assertions, err = c.ParseAssertions(assertionsMap)
 	if err != nil {
 		return nil, errors.New("wrong assertions found")
 	} else if cnf.Assertions == nil {
 		cnf.Assertions = assertions.NewAssertionManagerWithDefaults(nil)
 	}
-	cnf.Headers, err = c.ParseHeaders()
+	var headersMap = GetMapValuesFromArgs("--header-", c.rawArgs)
+	cnf.Headers, err = c.ParseHeaders(headersMap)
 	if err != nil {
 		return nil, errors.New("wrong headers found")
 	}
 	cnf.FormBody, _ = cp.GetAsString(FieldFormBody)
-	return cnf, nil
+	return []*Config{cnf}, nil
 }
 
-func (c *ConfigCli) ParseAssertions() (*assertions.AssertionManager, error) {
-	var valuesMap = GetMapValuesFromArgs("--assert-", c.rawArgs)
+func (c *ConfigCli) ParseAssertions(valuesMap map[string]string) (*assertions.AssertionManager, error) {
 	if valuesMap != nil && len(valuesMap) > 0 {
 		var assertionMap = map[string]assertions.Assertion{}
 		for k, v := range valuesMap {
@@ -66,8 +67,8 @@ func (c *ConfigCli) ParseAssertions() (*assertions.AssertionManager, error) {
 	return nil, nil
 }
 
-func (c *ConfigCli) ParseHeaders() (http.Header, error) {
-	var valuesMap = GetMapValuesFromArgs("--header-", c.rawArgs)
+func (c *ConfigCli) ParseHeaders(valuesMap map[string]string) (http.Header, error) {
+
 	if valuesMap != nil && len(valuesMap) > 0 {
 		var headersMap = http.Header{}
 		for k, v := range valuesMap {
