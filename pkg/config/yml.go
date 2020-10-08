@@ -8,13 +8,23 @@ import (
 	"net/http"
 )
 
-type YamlConfigMain map[string]*YamlConfigMap
+type YamlConfigHolder struct {
+	Main *YamlConfigSectionMain `yaml:"main"`
+	Targets map[string]*YamlConfigSectionTarget `yaml:"targets"`
+}
 
-type YamlConfigMap struct {
+type YamlConfigSectionMain struct {
+	Concurrency      int64                        `yaml:"concurrency"`
+	NumberOfRequests int64                        `yaml:"request-count"`
+	DataSource       *YamlConfigSectionDataSource `yaml:"data-source"`
+	TargetingPolicy  string                       `yaml:"targeting-policy"`
+}
+
+type YamlConfigTargets map[string]*YamlConfigSectionTarget
+
+type YamlConfigSectionTarget struct {
 	Assertions map[string]string `yaml:"assertions"`
 	Headers map[string]string `yaml:"headers"`
-	Concurrency int64 `yaml:"concurrency"`
-	NumberOfRequests int64 `yaml:"request-count"`
 	Method string `yaml:"method"`
 	Url string `yaml:"url"`
 	MaxTimeout int `yaml:"max-timeout"`
@@ -23,11 +33,17 @@ type YamlConfigMap struct {
 	LogFileDirectory string `yaml:"log-dir"`
 	ExecDurationHeaderName string `yaml:"exec-duration-header-name"`
 	CacheUsageHeaderName   string `yaml:"cache-usage-header-name"`
+	TargetingPolicy string `yaml:"-"`
+}
+
+type YamlConfigSectionDataSource struct {
+	Concurrency int64 `yaml:"concurrency"`
+	NumberOfRequests int64 `yaml:"request-count"`
 }
 
 type ConfigYaml struct {
-	rawBytes []byte
-	yamlConfig YamlConfigMain
+	rawBytes   []byte
+	yamlConfig *YamlConfigHolder
 }
 
 func NewConfigYaml() *ConfigYaml {
@@ -49,15 +65,16 @@ func (c *ConfigYaml) LoadConfigs(vars ...interface{}) ([]*Config, error) {
 		return nil, err
 	}
 	c.rawBytes = b
-	ymlCnf := &YamlConfigMain{}
+	ymlCnf := &YamlConfigHolder{}
 	err = yaml.Unmarshal(c.rawBytes, ymlCnf)
-	c.yamlConfig = *ymlCnf
+	c.yamlConfig = ymlCnf
 	if err != nil {
 		return nil, err
 	}
 	var configs = make([]*Config, 0)
-	if c.yamlConfig != nil && len(c.yamlConfig) > 0 {
-		for _, unconvertedConfig := range c.yamlConfig {
+	if c.yamlConfig != nil && c.yamlConfig.Targets != nil && len(c.yamlConfig.Targets) > 0 {
+		for targetName, unconvertedConfig := range c.yamlConfig.Targets {
+			if unconvertedConfig.Assertions == nil {}
 			if unconvertedConfig != nil {
 				cc := &Config{}
 				cc.Assertions, err = c.ParseAssertions(unconvertedConfig.Assertions)
@@ -68,16 +85,18 @@ func (c *ConfigYaml) LoadConfigs(vars ...interface{}) ([]*Config, error) {
 				if err != nil {
 					return nil, err
 				}
-				cc.NumberOfRequests = unconvertedConfig.NumberOfRequests
-				cc.Concurrency = unconvertedConfig.Concurrency
+				cc.NumberOfRequests = c.yamlConfig.Main.NumberOfRequests
+				cc.Concurrency = c.yamlConfig.Main.Concurrency
 				cc.EnabledLogs = unconvertedConfig.EnabledLogs
 				cc.LogFileDirectory = unconvertedConfig.LogFileDirectory
 				cc.FormBody = unconvertedConfig.FormBody
 				cc.Method = unconvertedConfig.Method
 				cc.Url = unconvertedConfig.Url
+				cc.TargetName = targetName
 				cc.MaxTimeout = unconvertedConfig.MaxTimeout
 				cc.ExecDurationHeaderName = unconvertedConfig.ExecDurationHeaderName
 				cc.CacheUsageHeaderName = unconvertedConfig.CacheUsageHeaderName
+				cc.TargetingPolicy = c.yamlConfig.Main.TargetingPolicy
 				configs = append(configs, cc)
 			}
 		}
@@ -99,7 +118,7 @@ func (c *ConfigYaml) ParseAssertions(valuesMap map[string]string) (*assertions.A
 		}
 		return assertions.NewAssertionManagerWithDefaults(assertionMap), nil
 	}
-	return nil, nil
+	return assertions.NewAssertionManagerWithDefaults(nil), nil
 }
 
 func (c *ConfigYaml) ParseHeaders(valuesMap map[string]string) (http.Header, error) {

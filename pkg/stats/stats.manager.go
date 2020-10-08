@@ -67,6 +67,13 @@ func (s *StatsCollector) GetTotal() int64 {
 	}
 	return v.(int64)
 }
+func (s *StatsCollector) GetAverage() time.Duration {
+	v := s.Params.Get(AverageDuration)
+	if v == nil {
+		return 0
+	}
+	return v.(time.Duration)
+}
 func (s *StatsCollector) GetTimeout() int64 {
 	v := s.Params.Get(Timeout)
 	if v == nil {
@@ -278,6 +285,7 @@ func (s *StatsCollector) CalculateAverage() {
 	duration := time.Duration(rDur.Nanoseconds() / rSuccess)
 	s.Params.Add(AverageDuration, duration)
 }
+
 func (s *StatsCollector) CalculateExecAverageDuration() {
 	s.lock.Lock()
 	defer s.lock.Unlock()

@@ -11,6 +11,7 @@ import (
 	"github.com/mostafatalebi/loadtest/pkg/logger"
 	"github.com/mostafatalebi/loadtest/pkg/stats"
 	"github.com/mostafatalebi/loadtest/pkg/stats/progress"
+	variable "github.com/mostafatalebi/loadtest/pkg/variables"
 	"github.com/rs/xid"
 	"go.uber.org/atomic"
 	"io/ioutil"
@@ -28,6 +29,8 @@ const DefaultStatsContainer = "default"
 type RequestWorker struct {
 	Config                 *config.Config
 	SessionName            string
+	StageName              string
+	workerId               string
 	MaxConcurrentRequests  int64
 	TotalRequestsAttempted chan int8
 	concurrencyMaxAchieved atomic.Int64
@@ -37,16 +40,18 @@ type RequestWorker struct {
 	eventRequestAttempted  chan int8
 	eventCCChanged         chan int64
 	testStartTime          time.Time
-	requestChan            chan int64
+	requestCounter         chan int64
 	currentConcurrencyNum  atomic.Int64
 	progress               *progress.ProgressIndicator
 	logFileName            string
 }
 
-func NewRequestWorker(cnf *config.Config) *RequestWorker {
+func NewRequestWorker(cnf *config.Config, id string) *RequestWorker {
 	var sessionName = xid.New().String()
 	r := &RequestWorker{
 		Config:                cnf,
+		StageName:             cnf.TargetName,
+		workerId:			   id,
 		SessionName:           sessionName,
 		Stats:                 dyanmic_params.NewDynamicParams(dyanmic_params.SrcNameInternal, &sync.RWMutex{}),
 		Lock:                  &sync.RWMutex{},
@@ -54,8 +59,7 @@ func NewRequestWorker(cnf *config.Config) *RequestWorker {
 		eventRequestAttempted: make(chan int8),
 		eventCCChanged:        make(chan int64),
 		testStartTime:         time.Time{},
-		requestChan:           nil,
-		progress:              progress.NewProgressIndicator(cnf.NumberOfRequests),
+		requestCounter:        nil,
 	}
 
 	if cnf.EnabledLogs != true {
@@ -69,9 +73,8 @@ func NewRequestWorker(cnf *config.Config) *RequestWorker {
 		}
 		r.logFileName = logFileName
 	}
-	r.requestChan = make(chan int64, r.Config.Concurrency)
+	r.requestCounter = make(chan int64, r.Config.Concurrency)
 	go r.CalculateMaxConcurrency()
-	go r.progress.ListenToChannel(r.eventRequestAttempted)
 	return r
 }
 
@@ -92,24 +95,23 @@ func (r *RequestWorker) Do() error {
 	bd := bytes.NewBuffer(bt)
 	req, err := http.NewRequest(r.Config.Method, r.Config.Url, bd)
 	j := 1
-	//for _ = range r.requestChan {
-	r.AddStat(DefaultStatsContainer, stats.NewStatsManager(DefaultStatsContainer))
+	//for _ = range r.requestCounter {
 	for i := int64(0); i < r.Config.NumberOfRequests; i++ {
-		r.requestChan <- int64(1)
+		r.requestCounter <- int64(1)
 		wg.Add(1)
 		go func() {
-			defer func() { <-r.requestChan }()
+			defer func() { <-r.requestCounter }()
 			defer wg.Done()
 			defer r.UpdateConcurrentReqNum(-1)
 			r.eventRequestAttempted <- 1
 			r.UpdateConcurrentReqNum(1)
-			r.GetStat(DefaultStatsContainer).IncrSuccess(0)
+			r.GetStat(r.workerId).IncrSuccess(0)
 			if err != nil {
 				logger.Error("creating request object failed", err.Error())
 				return
 			}
 			req.Header = r.Config.Headers
-			r.sendRequest(req, time.Second*time.Duration(r.Config.MaxTimeout), DefaultStatsContainer)
+			r.sendRequest(req, time.Second*time.Duration(r.Config.MaxTimeout))
 		}()
 		j++
 	}
@@ -118,38 +120,76 @@ func (r *RequestWorker) Do() error {
 	return nil
 }
 
-func (r *RequestWorker) sendRequest(req *http.Request, tout time.Duration, profileName string) {
+func (r *RequestWorker) DoInChain(variables variable.VariableMap, next TargetFunc) (variable.VariableMap, error) {
+	defer r.UpdateConcurrentReqNum(-1)
+	r.UpdateConcurrentReqNum(1)
+	r.GetStat(r.workerId).IncrSuccess(0)
+	if variables != nil {
+		r.Config.Url = variable.ReplaceVariables(variables, r.Config.Url)
+		r.Config.FormBody = variable.ReplaceVariables(variables, r.Config.FormBody)
+
+		if r.Config.Headers != nil {
+			for k, _ := range r.Config.Headers {
+				hv := variable.ReplaceVariables(variables, r.Config.Headers.Get(k))
+				r.Config.Headers.Set(k, hv)
+			}
+		}
+	}
+	var bt = []byte(r.Config.FormBody)
+	bd := bytes.NewBuffer(bt)
+
+	req, err := http.NewRequest(r.Config.Method, r.Config.Url, bd)
+	if err != nil {
+		logger.Error("creating request object failed", err.Error())
+		return nil, nil
+	}
+	req.Header = r.Config.Headers
+	variablesAnalyzed := &variable.VariableAnalysis{}
+	bodyResponse, err := r.sendRequest(req, time.Second*time.Duration(r.Config.MaxTimeout))
+	if r.Config.VariablesMap != nil {
+		variablesAnalyzed, err = variable.NewVariableAnalysis(r.Config.VariablesMap, string(bodyResponse), "json")
+		if err != nil {
+			variablesAnalyzed = nil
+		}
+	}
+	if next != nil {
+		next(variables)
+	}
+	return variablesAnalyzed.Extract(), nil
+}
+
+func (r *RequestWorker) sendRequest(req *http.Request, tout time.Duration) ([]byte, error) {
 	tn := time.Now()
 	resp, err := GetHttpClient(tout).Do(req)
 	if resp != nil {
 		defer resp.Body.Close()
 	}
-	err = r.HandleResponse(profileName, resp, err)
+	err = r.HandleResponse(r.workerId, resp, err)
 
 	if err != nil {
 		logger.Error("request failed", err.Error())
-		return
+		return nil, errors.New("failed")
 	} else if resp == nil {
 		logger.Error("request failed", "no error and no response")
-		return
+		return nil, errors.New("failed")
 	}
-
+	bodyData, err := ioutil.ReadAll(resp.Body)
 	{
 		// assertions on response
-		if r.Config.Assertions.Exists(assertions.AssertBodyString) {
-			btData, err := ioutil.ReadAll(resp.Body)
+		if r.Config.Assertions != nil && r.Config.Assertions.Exists(assertions.AssertBodyString) {
+
 			if err != nil {
 				logger.Error("failed to read body of response", err)
-				r.GetStat(profileName).IncrOtherErrors(1)
-				return
+				r.GetStat(r.workerId).IncrOtherErrors(1)
+				return nil, errors.New("failed")
 			}
-			_ = r.Config.Assertions.Get(assertions.AssertBodyString).SetInput(btData)
+			_ = r.Config.Assertions.Get(assertions.AssertBodyString).SetInput(bodyData)
 		}
 		_ = r.Config.Assertions.Get(assertions.AssertStatusIsOk).SetTest(resp.StatusCode)
 		if err := r.Config.Assertions.ChainRunner(assertions.AssertStatusIsOk, assertions.AssertBodyString); err == nil {
-			r.GetStat(profileName).IncrSuccess(1)
+			r.GetStat(r.workerId).IncrSuccess(1)
 		} else {
-			r.GetStat(profileName).IncrOtherErrors(1)
+			r.GetStat(r.workerId).IncrOtherErrors(1)
 		}
 	}
 
@@ -169,14 +209,15 @@ func (r *RequestWorker) sendRequest(req *http.Request, tout time.Duration, profi
 				appExecDure = 0
 			}
 		}
-		r.GetStat(profileName).AddExecDuration(appExecDure)
-		r.GetStat(profileName).AddExecShortestDuration(appExecDure)
-		r.GetStat(profileName).AddExecLongestDuration(appExecDure)
+		r.GetStat(r.workerId).AddExecDuration(appExecDure)
+		r.GetStat(r.workerId).AddExecShortestDuration(appExecDure)
+		r.GetStat(r.workerId).AddExecLongestDuration(appExecDure)
 	}
-	r.GetStat(profileName).IncrCacheUsed(cacheUsed)
-	r.GetStat(profileName).AddMainDuration(dur)
-	r.GetStat(profileName).AddLongestDuration(dur)
-	r.GetStat(profileName).AddShortestDuration(dur)
+	r.GetStat(r.workerId).IncrCacheUsed(cacheUsed)
+	r.GetStat(r.workerId).AddMainDuration(dur)
+	r.GetStat(r.workerId).AddLongestDuration(dur)
+	r.GetStat(r.workerId).AddShortestDuration(dur)
+	return bodyData, nil
 }
 
 func (r *RequestWorker) HandleResponse(profileName string, resp *http.Response, err interface{}) error {
@@ -253,7 +294,7 @@ func (r *RequestWorker) UpdateConcurrentReqNum(val int8) {
 
 func (r *RequestWorker) CalculateMaxConcurrency() {
 	for sig := range r.eventCCChanged {
-		r.GetStat(DefaultStatsContainer).UpdateMaxConcurrencyAchieved(sig)
+		r.GetStat(r.workerId).UpdateMaxConcurrencyAchieved(sig)
 	}
 }
 func (r *RequestWorker) MergeAll() stats.StatsCollector {

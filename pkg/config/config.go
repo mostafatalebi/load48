@@ -2,6 +2,7 @@ package config
 
 import (
 	"github.com/mostafatalebi/loadtest/pkg/assertions"
+	variable "github.com/mostafatalebi/loadtest/pkg/variables"
 	"net/http"
 )
 
@@ -19,19 +20,23 @@ const (
 )
 
 
+
 type Config struct {
-	Concurrency int64 `yaml:"concurrency"`
-	NumberOfRequests int64 `yaml:"request-count"`
-	Method string `yaml:"method"`
-	Url string `yaml:"url"`
-	MaxTimeout int `yaml:"max-timeout"`
-	EnabledLogs bool `yaml:"enable-logs"`
-	Assertions *assertions.AssertionManager `yaml:"assertions"`
-	Headers http.Header `yaml:"headers"`
-	FormBody string `yaml:"form-body"`
-	LogFileDirectory string `yaml:"log-dir"`
-	ExecDurationHeaderName string `yaml:"exec-duration-header-name"`
-	CacheUsageHeaderName   string `yaml:"cache-usage-header-name"`
+	Concurrency            int64
+	NumberOfRequests       int64
+	Method                 string
+	TargetName             string
+	Url                    string
+	MaxTimeout             int
+	EnabledLogs            bool
+	Assertions             *assertions.AssertionManager
+	Headers                http.Header
+	FormBody               string
+	LogFileDirectory       string
+	ExecDurationHeaderName string
+	CacheUsageHeaderName   string
+	VariablesMap           variable.VariableMap
+	TargetingPolicy string `yaml:"-"`
 }
 
 

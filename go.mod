@@ -8,6 +8,7 @@ require (
 	github.com/mostafatalebi/dynamic-params v0.0.7
 	github.com/rs/xid v1.2.1
 	github.com/stretchr/testify v1.6.1
+	github.com/tidwall/gjson v1.6.1
 	go.uber.org/atomic v1.7.0
 	gopkg.in/yaml.v2 v2.3.0 // indirect
 )
