@@ -1,0 +1,93 @@
+# This config file is for testing multiple targets.
+# Execution pattern is set to sequential, which means
+# a targets gets executed, and then it executes the next target, and so on until
+# the last target is executed. Each target might define variables and pass it to
+# the next target.
+#
+# If any data-source is defined, it gets executed first and then targets execution beings,
+# and all target receive any variable defined by data source (along with previous targets
+# possible variables).
+#
+# In this config, also assertions are used. For the list of available assertions please
+# see the documentation. If an assertion fails it will be considered as Other Errors, we
+# will implement assertions' specific errors and stats for more verbose result, in near future.
+#
+# Also, there is a logs section which enables logging and sets a directory for it. By default,
+# logging is turned off, unless specified in the config file, like this example.
+#
+# Targets in this config use variables defined in the data-source and targets, take a look
+# at getUser target and you see inside the URL there is a variable $user which gets the value
+# received from previous target (login). login itself uses a variable from data-source, and
+# uses it in its header section.
+#
+main:
+  request-count: 10000000
+  concurrency: 100
+  targeting-policy: "seq"  # values are: seq, parallel, round-robin
+
+logs:
+  enable: true
+  dir: /var/log/tests
+
+data-source: # this is a url which gets called before a target(s) execution start(s), and
+             # allows you to define variables for all your targets, regardless of per-target
+             # variable definitions. For example, if your targets need an access token to be
+             # included in the header, you can define login as a data-source, define any variable
+             # from response, and then use them in targets' url, body, header or assertions.
+             # Or if you have define a test-specific endpoint in your server and needs to be called
+             # before each test, you can define it here
+  getToken:
+    url: http://127.0.0.1:3001/getDataSource
+    variables:
+      $token:
+        type: string
+        path: data.token
+    headers:
+      Origin: test.com
+      Content-Type: text/html
+    max-timeout: 1
+    refresh:
+      type: ms # ms => time in ms
+               # sec => time in sec
+      value: 20
+
+targets:
+  # if you define multiple targets, they get exec
+  login:
+    url: http://127.0.0.1:3001/login # the URL to which
+    variables: # This field allows you to define variables returned by the target's response,
+               # and can be used by other targets. It supports only responses in JSON format.
+               # NOTE: this field is usable by other targets only if the targeting policy
+               # is set to 'seq'. Because using variables is meaningful and
+               # and non-buggy only if they are ready before the next target rolls in for execution
+               #
+               # Variable names are global and they override if any previous name is
+               # defined in a previous target or data-source.
+
+      $username: # a variable name MUST start with $
+        type: string #possible types are: string, int, array and object
+        path: data.username
+      $password:
+        type: string
+        path: data.password
+    headers:
+      Origin: test.com
+      Content-Type: text/html
+      X-Sample-Token: token-$token
+    exec-duration-header-name: ""
+    cache-usage-header-name: ""
+    max-timeout: 1
+  getUser:
+    url: http://127.0.0.1:3001/getUser?user=$username # we can use any defined variable in previous target
+    variables:
+      $name:
+        type: array
+        path: data.name
+    headers:
+      Origin: test.com
+      Content-Type: text/html
+      X-Password: $password
+    assertions:
+      body-string: "'firstName' : "
+    exec-duration-header-name: ""
+    cache-usage-header-name: ""

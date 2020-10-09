@@ -107,3 +107,18 @@ func (v *VariableAnalysis) Extract() VariableMap {
 	}
 	return nil
 }
+
+func Merge(vars VariableMap, otherVars VariableMap) VariableMap {
+	var newVars = make(VariableMap, 0)
+	if vars != nil {
+		for k, v := range vars {
+			newVars[k] = v
+		}
+	}
+	if otherVars != nil {
+		for k, v := range otherVars {
+			newVars[k] = v
+		}
+	}
+	return newVars
+}

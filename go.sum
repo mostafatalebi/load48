@@ -1,6 +1,8 @@
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
+github.com/gavv/deepcopy v0.0.0-20160510082458-5dc2cad7a351 h1:VyOmk4olvKW0j+BdnB2R4SbJ1VQvwHqIjtxt31UDMxQ=
+github.com/gavv/deepcopy v0.0.0-20160510082458-5dc2cad7a351/go.mod h1:s+hFzicWa70FjdLMS6OiNmsAi5jmI9OjwORqYHWxUY0=
 github.com/go-yaml/yaml v2.1.0+incompatible h1:RYi2hDdss1u4YE7GwixGzWwVo47T8UQwnTLB6vQiq+o=
 github.com/go-yaml/yaml v2.1.0+incompatible/go.mod h1:w2MrLa16VYP0jy6N7M5kHaCkaLENm+P+Tv+MfurjSw0=
 github.com/gojektech/valkyrie v0.0.0-20180215180059-6aee720afcdf h1:WUa/Tvd+vZuW17gOND3CryHvG0yc2nhC1gr+H2F7bFM=

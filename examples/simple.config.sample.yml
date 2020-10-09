@@ -1,0 +1,21 @@
+# This config is a simple config sending requests to a URL with a given count and
+# concurrency. It also sends some custom headers. This config has logs section
+# which is described in multi-target yaml file example.
+main:
+  request-count: 100
+  concurrency: 10
+  targeting-policy: "seq"  # values are: seq, parallel, round-robin
+
+logs:
+  enable: true
+  dir: /var/log/tests
+
+targets:
+  # if you define multiple targets, they get exec
+  login:
+    url: http://127.0.0.1:3001/login # the URL to which
+    headers:
+      Origin: test.com
+      Content-Type: text/html
+    max-timeout: 1
+

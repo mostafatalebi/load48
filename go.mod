@@ -3,6 +3,7 @@ module github.com/mostafatalebi/loadtest
 go 1.14
 
 require (
+	github.com/gavv/deepcopy v0.0.0-20160510082458-5dc2cad7a351
 	github.com/go-yaml/yaml v2.1.0+incompatible
 	github.com/gojektech/valkyrie v0.0.0-20180215180059-6aee720afcdf
 	github.com/mostafatalebi/dynamic-params v0.0.7

@@ -23,6 +23,9 @@ func NewProgressIndicator(total int64) *ProgressIndicator {
 }
 
 func (p *ProgressIndicator) ByPercent(total, current int64, fn func(percent int8)) {
+	if total < 10 {
+		return
+	}
 	p.Lock.Lock()
 	defer p.Lock.Unlock()
 

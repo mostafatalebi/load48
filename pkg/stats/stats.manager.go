@@ -335,11 +335,21 @@ func (s *StatsCollector) AddExecShortestDuration(duration time.Duration) {
 	}
 }
 
+func (s *StatsCollector) Copy() StatsCollector {
+	newStats := NewStatsManager(s.Key)
+	s.Params.Iterate(func(key string, value interface{}) {
+		newStats.Params.Add(key, value)
+	})
+	return *newStats
+}
+
+
 func (s *StatsCollector) Merge(scp *StatsCollector) StatsCollector {
 	if scp.Params == nil {
 		return *s
 	}
-	s.Params.Iterate(func(key string, origValue interface{}) {
+	var sCopy = s.Copy()
+	sCopy.Params.Iterate(func(key string, origValue interface{}) {
 		if !scp.Params.Has(key) && !common.ExistsStrInArray(key, s.AllowedParams) {
 			return
 		}
@@ -349,7 +359,7 @@ func (s *StatsCollector) Merge(scp *StatsCollector) StatsCollector {
 		if m, err := regexp.Match(`^[0-9]+$`, []byte(key)); err == nil && m {
 			vv := value.(int64)
 			fcode, _ := strconv.Atoi(key)
-			s.IncrFailed(fcode, vv)
+			sCopy.IncrFailed(fcode, vv)
 			return
 		}
 		switch key {
@@ -361,7 +371,7 @@ func (s *StatsCollector) Merge(scp *StatsCollector) StatsCollector {
 			if !ok {
 				vv = 0
 			}
-			s.IncrTotalSent(vv)
+			sCopy.IncrTotalSent(vv)
 		case MaxConcurrencyAchieved:
 			if value == nil {
 				value = 0
@@ -370,7 +380,7 @@ func (s *StatsCollector) Merge(scp *StatsCollector) StatsCollector {
 			if !ok {
 				vv = 0
 			}
-			s.UpdateMaxConcurrencyAchieved(vv)
+			sCopy.UpdateMaxConcurrencyAchieved(vv)
 		case Timeout:
 			if value == nil {
 				value = 0
@@ -379,7 +389,7 @@ func (s *StatsCollector) Merge(scp *StatsCollector) StatsCollector {
 			if !ok {
 				vv = 0
 			}
-			s.IncrTimeout(vv)
+			sCopy.IncrTimeout(vv)
 		case ConnRefused:
 			if value == nil {
 				value = 0
@@ -388,7 +398,7 @@ func (s *StatsCollector) Merge(scp *StatsCollector) StatsCollector {
 			if !ok {
 				vv = 0
 			}
-			s.IncrConnRefused(vv)
+			sCopy.IncrConnRefused(vv)
 		case OtherErrors:
 			if value == nil {
 				value = 0
@@ -397,7 +407,7 @@ func (s *StatsCollector) Merge(scp *StatsCollector) StatsCollector {
 			if !ok {
 				vv = 0
 			}
-			s.IncrOtherErrors(vv)
+			sCopy.IncrOtherErrors(vv)
 		case Success:
 			if value == nil {
 				value = 0
@@ -406,7 +416,7 @@ func (s *StatsCollector) Merge(scp *StatsCollector) StatsCollector {
 			if !ok {
 				vv = 0
 			}
-			s.IncrSuccess(vv)
+			sCopy.IncrSuccess(vv)
 		case CacheUsed:
 			if value == nil {
 				value = 0
@@ -415,20 +425,20 @@ func (s *StatsCollector) Merge(scp *StatsCollector) StatsCollector {
 			if !ok {
 				vv = 0
 			}
-			s.IncrCacheUsed(vv)
+			sCopy.IncrCacheUsed(vv)
 		case ExecDuration:
 			vv := value.(time.Duration)
-			s.AddExecDuration(vv)
+			sCopy.AddExecDuration(vv)
 		case MainDuration:
 			vv := value.(time.Duration)
-			s.AddMainDuration(vv)
+			sCopy.AddMainDuration(vv)
 		case ShortestDuration:
 			vv := value.(time.Duration)
-			s.AddShortestDuration(vv)
+			sCopy.AddShortestDuration(vv)
 		}
 	})
 
-	return *s
+	return sCopy
 }
 
 func (s *StatsCollector) PrintPretty(preset map[string]string) {

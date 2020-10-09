@@ -3,7 +3,6 @@ package request
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"github.com/gojektech/valkyrie"
 	dyanmic_params "github.com/mostafatalebi/dynamic-params"
 	"github.com/mostafatalebi/loadtest/pkg/assertions"
@@ -12,7 +11,6 @@ import (
 	"github.com/mostafatalebi/loadtest/pkg/stats"
 	"github.com/mostafatalebi/loadtest/pkg/stats/progress"
 	variable "github.com/mostafatalebi/loadtest/pkg/variables"
-	"github.com/rs/xid"
 	"go.uber.org/atomic"
 	"io/ioutil"
 	"net"
@@ -28,7 +26,6 @@ const DefaultStatsContainer = "default"
 // with all its config to a specific endpoint
 type RequestWorker struct {
 	Config                 *config.Config
-	SessionName            string
 	StageName              string
 	workerId               string
 	MaxConcurrentRequests  int64
@@ -44,15 +41,21 @@ type RequestWorker struct {
 	currentConcurrencyNum  atomic.Int64
 	progress               *progress.ProgressIndicator
 	logFileName            string
+	requestObjUsage 	   string
+	requestObj			   *http.Request
+	RefreshConfig		   *Refresh
+}
+
+type Refresh struct {
+	RefreshType string
+	Count 	int
 }
 
 func NewRequestWorker(cnf *config.Config, id string) *RequestWorker {
-	var sessionName = xid.New().String()
 	r := &RequestWorker{
 		Config:                cnf,
 		StageName:             cnf.TargetName,
 		workerId:			   id,
-		SessionName:           sessionName,
 		Stats:                 dyanmic_params.NewDynamicParams(dyanmic_params.SrcNameInternal, &sync.RWMutex{}),
 		Lock:                  &sync.RWMutex{},
 		LockConcurrencyStat:   &sync.Mutex{},
@@ -62,17 +65,6 @@ func NewRequestWorker(cnf *config.Config, id string) *RequestWorker {
 		requestCounter:        nil,
 	}
 
-	if cnf.EnabledLogs != true {
-		logger.LogEnabled = false
-	} else {
-		r.Config.LogFileDirectory = logger.DefaultDirectory
-		var logFileName = fmt.Sprintf("loadtest-%v-%v-%v", time.Now().Year(), time.Now().Month(), time.Now().Day()) + sessionName + ".log"
-		err := logger.Initialize(logger.LogModeFile, r.Config.LogFileDirectory+logFileName)
-		if err != nil {
-			panic(err)
-		}
-		r.logFileName = logFileName
-	}
 	r.requestCounter = make(chan int64, r.Config.Concurrency)
 	go r.CalculateMaxConcurrency()
 	return r
@@ -89,11 +81,12 @@ func (r *RequestWorker) Do() error {
 	//r.publishRequestsToChannel()
 	r.testStartTime = time.Now()
 	wg := &sync.WaitGroup{}
-	logger.InfoOut("Test Status", fmt.Sprintf("session start: %v", r.SessionName))
 	logger.InfoOut("Logfile", r.logFileName)
 	var bt = []byte(r.Config.FormBody)
 	bd := bytes.NewBuffer(bt)
-	req, err := http.NewRequest(r.Config.Method, r.Config.Url, bd)
+	var err error
+	r.requestObj, err = http.NewRequest(r.Config.Method, r.Config.Url, bd)
+	r.requestObj.Header = r.Config.Headers
 	j := 1
 	//for _ = range r.requestCounter {
 	for i := int64(0); i < r.Config.NumberOfRequests; i++ {
@@ -110,8 +103,7 @@ func (r *RequestWorker) Do() error {
 				logger.Error("creating request object failed", err.Error())
 				return
 			}
-			req.Header = r.Config.Headers
-			r.sendRequest(req, time.Second*time.Duration(r.Config.MaxTimeout))
+			r.sendRequest(r.requestObj, time.Second*time.Duration(r.Config.MaxTimeout))
 		}()
 		j++
 	}
@@ -120,30 +112,44 @@ func (r *RequestWorker) Do() error {
 	return nil
 }
 
+// DoInChain executes single requests and applies all assertions on response
+// it also can accept a next func which will be executed at the end of its own
+// execution, and it passes any variables defined and processed (if any), to the
+// next() handler
 func (r *RequestWorker) DoInChain(variables variable.VariableMap, next TargetFunc) (variable.VariableMap, error) {
 	defer r.UpdateConcurrentReqNum(-1)
 	r.UpdateConcurrentReqNum(1)
 	r.GetStat(r.workerId).IncrSuccess(0)
+
+	var urlStr = r.Config.Url
+	var formBody = r.Config.FormBody
+	var headers = make(http.Header, 0)
+	if r.Config.Headers != nil {
+		for k, v :=  range r.Config.Headers {
+			headers[k] = v
+		}
+	}
+
 	if variables != nil {
-		r.Config.Url = variable.ReplaceVariables(variables, r.Config.Url)
-		r.Config.FormBody = variable.ReplaceVariables(variables, r.Config.FormBody)
+		urlStr = variable.ReplaceVariables(variables, urlStr)
+		formBody = variable.ReplaceVariables(variables, formBody)
 
 		if r.Config.Headers != nil {
-			for k, _ := range r.Config.Headers {
-				hv := variable.ReplaceVariables(variables, r.Config.Headers.Get(k))
-				r.Config.Headers.Set(k, hv)
+			for k, _ := range headers {
+				hv := variable.ReplaceVariables(variables, headers.Get(k))
+				headers.Set(k, hv)
 			}
 		}
 	}
-	var bt = []byte(r.Config.FormBody)
+	var bt = []byte(formBody)
 	bd := bytes.NewBuffer(bt)
 
-	req, err := http.NewRequest(r.Config.Method, r.Config.Url, bd)
+	req, err := http.NewRequest(r.Config.Method, urlStr, bd)
 	if err != nil {
 		logger.Error("creating request object failed", err.Error())
 		return nil, nil
 	}
-	req.Header = r.Config.Headers
+	req.Header = headers
 	variablesAnalyzed := &variable.VariableAnalysis{}
 	bodyResponse, err := r.sendRequest(req, time.Second*time.Duration(r.Config.MaxTimeout))
 	if r.Config.VariablesMap != nil {
@@ -151,11 +157,15 @@ func (r *RequestWorker) DoInChain(variables variable.VariableMap, next TargetFun
 		if err != nil {
 			variablesAnalyzed = nil
 		}
+		if variablesAnalyzed != nil {
+			var newVariables = variablesAnalyzed.Extract()
+			variables = variable.Merge(variables, newVariables)
+		}
 	}
 	if next != nil {
 		next(variables)
 	}
-	return variablesAnalyzed.Extract(), nil
+	return variables, nil
 }
 
 func (r *RequestWorker) sendRequest(req *http.Request, tout time.Duration) ([]byte, error) {
@@ -188,6 +198,8 @@ func (r *RequestWorker) sendRequest(req *http.Request, tout time.Duration) ([]by
 		_ = r.Config.Assertions.Get(assertions.AssertStatusIsOk).SetTest(resp.StatusCode)
 		if err := r.Config.Assertions.ChainRunner(assertions.AssertStatusIsOk, assertions.AssertBodyString); err == nil {
 			r.GetStat(r.workerId).IncrSuccess(1)
+		} else if resp.StatusCode != 200 && resp.StatusCode != 201 {
+			r.GetStat(r.workerId).IncrFailed(resp.StatusCode, 1)
 		} else {
 			r.GetStat(r.workerId).IncrOtherErrors(1)
 		}

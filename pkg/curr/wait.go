@@ -16,7 +16,7 @@ type Wait struct {
 	maxWait time.Duration
 	itr int64
 	err error
-	stopChan *chan bool
+	stopChan chan bool
 }
 
 
@@ -31,7 +31,7 @@ func NewWait(interval, backoff, maxWait time.Duration) *Wait {
 	}
 }
 
-func (w *Wait) SetChan(ch *chan bool){
+func (w *Wait) SetChan(ch chan bool){
 	w.stopChan = ch
 }
 
@@ -40,15 +40,9 @@ func (w *Wait) Waiting() bool {
 		w.interval += w.backoff
 	}
 
-	if w.maxWait < w.interval {
+	if w.maxWait != 0 && w.maxWait < w.interval {
 		 w.err = errors.New(MaxWaitError)
 		 return false
-	}
-
-	if w.stopChan != nil {
-		go func() {
-
-		}()
 	}
 
 	time.Sleep(w.interval)

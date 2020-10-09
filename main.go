@@ -15,26 +15,23 @@ var Version = ""
 func main() {
 	CheckCommandEntry()
 	cp := dyanmic_params.NewDynamicParams(dyanmic_params.SrcNameArgs, os.Args)
-	configType, _ := cp.GetAsString("config")
+	fileName, _ := cp.GetAsString("file")
 	var cnf []*config.Config
 	var err error
-	if configType == "cli" || configType == ""  {
+	if fileName == ""  {
 		var configLoader = config.NewConfig("cli")
 		cnf, err = configLoader.LoadConfigs(os.Args)
 		if err != nil {
 			log.Print("incorrect config", err.Error())
 			return
 		}
-	} else if configType == "yaml" {
-		fileName, _ := cp.GetAsString("file")
+	} else {
 		var configLoader = config.NewConfig("yaml")
 		cnf, err = configLoader.LoadConfigs(fileName)
 		if err != nil {
 			log.Print("incorrect config", err.Error())
 			return
 		}
-	} else if configType != "" {
-		log.Panic("no supported config: cli, yaml [or leave it empty for cli]'")
 	}
 
 	if cnf == nil {
