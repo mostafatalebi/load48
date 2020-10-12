@@ -7,6 +7,7 @@ import (
 	"github.com/mostafatalebi/loadtest/pkg/request"
 	"github.com/mostafatalebi/loadtest/pkg/stats"
 	"github.com/rs/xid"
+	"os"
 	"runtime"
 	"sync"
 	"time"
@@ -36,9 +37,9 @@ func NewLoadTest(configs ...*config.Config) *LoadTest {
 	}
 
 	if configs[0].EnabledLogs != true {
+		fmt.Println("logs are disabled")
 		logger.LogEnabled = false
 	} else {
-		configs[0].LogFileDirectory = logger.DefaultDirectory
 		var logFileName = fmt.Sprintf("loadtest-%v-%v-%v", time.Now().Year(), time.Now().Month(), time.Now().Day()) + sessionName + ".log"
 		err := logger.Initialize(logger.LogModeFile,  configs[0].LogFileDirectory+logFileName)
 		if err != nil {
@@ -76,7 +77,8 @@ func (ld *LoadTest) ApplyDataSources(dataSources ...*config.Config) {
 func (ld *LoadTest) StartWorkers() {
 	ld.testStartTime = time.Now()
 	if len(ld.targeting.Workers) == 0 {
-		panic("no worker has been found to start")
+		fmt.Println("no worker has been found to start")
+		os.Exit(1)
 	}
 	ld.targeting.Run(request.ExecWorker)
 }

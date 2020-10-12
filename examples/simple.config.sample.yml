@@ -7,8 +7,8 @@ main:
   targeting-policy: "seq"  # values are: seq, parallel, round-robin
 
 logs:
-  enable: true
-  dir: /var/log/tests
+  enabled: true
+  dir: ./logs
 
 targets:
   # if you define multiple targets, they get exec

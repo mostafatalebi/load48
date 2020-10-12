@@ -27,7 +27,7 @@ main:
 
 logs:
   enable: true
-  dir: /var/log/tests
+  dir: ./logs
 
 data-source: # this is a url which gets called before a target(s) execution start(s), and
              # allows you to define variables for all your targets, regardless of per-target
@@ -74,6 +74,7 @@ targets:
       Origin: test.com
       Content-Type: text/html
       X-Sample-Token: token-$token
+    formBody: ""
     exec-duration-header-name: ""
     cache-usage-header-name: ""
     max-timeout: 1

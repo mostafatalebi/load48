@@ -18,6 +18,7 @@ func NewConfigCli() *ConfigCli {
 }
 
 func (c *ConfigCli) LoadConfigs(vars ...interface{}) ([]*Config, error) {
+	fmt.Println("Warning: load48 is executed using cli params instead of yaml, it is strongly recommended to use .yaml file instead of command-line params")
 	args := make([]string, 0)
 	if vars == nil || len(vars) == 0 {
 		return nil, errors.New("os.Args is need as first param")
@@ -31,8 +32,14 @@ func (c *ConfigCli) LoadConfigs(vars ...interface{}) ([]*Config, error) {
 	cnf.Method, _ = cp.GetAsQuotedString(FieldMethod)
 	cnf.Url, _ = cp.GetAsQuotedString(FieldUrl)
 	cnInt, _ := cp.GetStringAsInt(FieldConcurrency)
+	if cnInt == 0 {
+		return nil, errors.New("[cli] --concurrency cannot be zero")
+	}
 	cnf.Concurrency = int64(cnInt)
 	cnInt, _ = cp.GetStringAsInt(FieldNumberOfRequests)
+	if cnInt == 0 {
+		return nil, errors.New("[cli] --request-count cannot be zero")
+	}
 	cnf.NumberOfRequests = int64(cnInt)
 	cnf.ExecDurationHeaderName, _ = cp.GetAsString(FieldExecDurationHeaderName)
 	cnf.CacheUsageHeaderName, _ = cp.GetAsString(FieldCacheUsageHeaderName)

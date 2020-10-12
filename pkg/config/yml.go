@@ -29,8 +29,8 @@ type YamlConfigRefresh struct {
 }
 
 type YamlConfigSectionLogs struct {
-	Enable bool   `yaml:"enable"`
-	Dir    string `yaml:"dir"`
+	Enabled bool   `yaml:"enabled"`
+	Dir     string `yaml:"dir"`
 }
 
 type YamlConfigTargets map[string]*YamlConfigSectionTarget
@@ -85,7 +85,7 @@ func (c *ConfigYaml) LoadConfigs(vars ...interface{}) ([]*Config, error) {
 	if c.yamlConfig != nil && c.yamlConfig.Targets != nil && len(c.yamlConfig.Targets) > 0 {
 		for targetName, unconvertedConfig := range c.yamlConfig.Targets {
 			if unconvertedConfig != nil {
-				cc, err := c.mapYmlToConfig(targetName, unconvertedConfig)
+				cc, err := c.mapYmlToConfig(targetName, unconvertedConfig, c.yamlConfig.Logs)
 				if err != nil {
 					logger.InfoOut("config failed", err.Error())
 					continue
@@ -97,7 +97,7 @@ func (c *ConfigYaml) LoadConfigs(vars ...interface{}) ([]*Config, error) {
 	if c.yamlConfig != nil && c.yamlConfig.DataSources != nil && len(c.yamlConfig.DataSources) > 0 {
 		for targetName, unconvertedConfig := range c.yamlConfig.DataSources {
 			if unconvertedConfig != nil {
-				cc, err := c.mapYmlToConfig(targetName, unconvertedConfig)
+				cc, err := c.mapYmlToConfig(targetName, unconvertedConfig, c.yamlConfig.Logs)
 				if err != nil {
 					logger.InfoOut("config failed", err.Error())
 					continue
@@ -109,7 +109,7 @@ func (c *ConfigYaml) LoadConfigs(vars ...interface{}) ([]*Config, error) {
 	return configs, nil
 }
 
-func (c *ConfigYaml) mapYmlToConfig(targetName string, ymlConfig *YamlConfigSectionTarget) (*Config, error) {
+func (c *ConfigYaml) mapYmlToConfig(targetName string, ymlConfig *YamlConfigSectionTarget, logsConfig *YamlConfigSectionLogs) (*Config, error) {
 	cc := &Config{}
 	var err error
 	cc.VariablesMap = ymlConfig.Variables
@@ -128,6 +128,10 @@ func (c *ConfigYaml) mapYmlToConfig(targetName string, ymlConfig *YamlConfigSect
 	cc.Url = ymlConfig.Url
 	cc.TargetName = targetName
 	cc.MaxTimeout = ymlConfig.MaxTimeout
+	if logsConfig != nil {
+		cc.EnabledLogs = logsConfig.Enabled
+		cc.LogFileDirectory = logsConfig.Dir
+	}
 	cc.ExecDurationHeaderName = ymlConfig.ExecDurationHeaderName
 	cc.CacheUsageHeaderName = ymlConfig.CacheUsageHeaderName
 	cc.TargetingPolicy = c.yamlConfig.Main.TargetingPolicy

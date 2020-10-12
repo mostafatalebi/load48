@@ -1,7 +1,7 @@
 VERSION = -X main.Version=$$(git describe --tags --candidates=1)
-build:
+build-linux:
 	@echo "Building for version ${VERSION}"
-	CGO_ENABLED=1 go build -ldflags="${VERSION}" -o ./builds/loadtest
+	CGO_ENABLED=1 go build -ldflags="${VERSION}" -o ./builds/loadtest && cp ./builds/loadtest /usr/bin/load48
 
 
 buildlatest:

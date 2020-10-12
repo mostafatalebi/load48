@@ -5,9 +5,9 @@ import (
 	"github.com/mostafatalebi/dynamic-params"
 	"github.com/mostafatalebi/loadtest/pkg/config"
 	"github.com/mostafatalebi/loadtest/pkg/loadtest"
-	"log"
 	"os"
 	"os/signal"
+	"strings"
 )
 
 var Version = ""
@@ -22,23 +22,28 @@ func main() {
 		var configLoader = config.NewConfig("cli")
 		cnf, err = configLoader.LoadConfigs(os.Args)
 		if err != nil {
-			log.Print("incorrect config", err.Error())
+			fmt.Println("incorrect config", err.Error())
 			return
 		}
-	} else {
+	} else if len(fileName) > 0 && (strings.Contains(fileName, ".yaml") || strings.Contains(fileName, ".yml")) {
 		var configLoader = config.NewConfig("yaml")
 		cnf, err = configLoader.LoadConfigs(fileName)
 		if err != nil {
-			log.Print("incorrect config", err.Error())
+			fmt.Println("incorrect config", err.Error())
 			return
 		}
+	} else {
+		fmt.Println("no config file is found (use --file=someFile arg)")
+		os.Exit(1)
+		return
 	}
-
 	if cnf == nil {
-		log.Panic("cannot understand config type, 'cli' and 'yml' are supported")
+		fmt.Println("cannot understand config type, 'cli' and 'yml' are supported")
+		os.Exit(1)
 	}
 	lt := loadtest.NewLoadTest(cnf...)
 	initCancelInterrupt()
+	fmt.Println("starting the test...")
 	lt.StartWorkers()
 	lt.PrintWorkersStats()
 	lt.PrintGeneralInfo()

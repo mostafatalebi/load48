@@ -2,6 +2,7 @@ package request
 
 import (
 	"github.com/mostafatalebi/loadtest/pkg/curr"
+	"github.com/mostafatalebi/loadtest/pkg/logger"
 	"github.com/mostafatalebi/loadtest/pkg/stats"
 	"github.com/mostafatalebi/loadtest/pkg/stats/progress"
 	variable "github.com/mostafatalebi/loadtest/pkg/variables"
@@ -68,15 +69,18 @@ func NewTargetManager(tp string, cc, rc int64) *Targeting {
 // targets.
 func (t *Targeting) Run(execType string) {
 	if execType == ExecWorker {
+		logger.InfoOut("running targets...", "")
 		if t.IsSequential() {
 			t.SequentialExecution(t.Workers)
 		}
 	} else if execType == ExecDataSource {
 		if t.DataSources != nil {
+			logger.InfoOut("running data-source(s)...", "")
 			t.SequentialExecutionOfDataSources(t.DataSources)
 		}
+	} else {
+		logger.InfoOut("nothing run, no exec type specified", "")
 	}
-
 }
 
 // Creates a reverse recursion from the given list of workers.
@@ -133,7 +137,9 @@ func (t *Targeting) PrintTargetsStats() {
 	for _, v := range t.Workers {
 		v.GetStat(v.workerId).PrintPretty(stats.DefaultPresetWithAutoFailedCodes)
 	}
-	t.StatsTotal.PrintPretty(stats.DefaultPresetWithAutoFailedCodes)
+	if t.StatsTotal != nil {
+		t.StatsTotal.PrintPretty(stats.DefaultPresetWithAutoFailedCodes)
+	}
 }
 
 // creates a list of functions to be called recursively, this is used
