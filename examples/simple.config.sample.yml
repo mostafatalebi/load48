@@ -18,4 +18,5 @@ targets:
       Origin: test.com
       Content-Type: text/html
     max-timeout: 1
+    httpMethod: GET
 

@@ -35,6 +35,27 @@ are passed to the next target(s) in row.
 
 
 #### Yaml Config
+Please see examples/ directory for complete config files. But I also put a simple one 
+here:
+```yaml
+main:
+  request-count: 100
+  concurrency: 10
+  targeting-policy: "seq" // the only supported targeting policy now
+
+logs:
+  enabled: true
+  dir: ./logs
+
+targets:
+  login:
+    url: http://127.0.0.1:3001/login 
+    headers:
+      Origin: test.com
+      Content-Type: text/html
+    max-timeout: 1
+    httpMethod: GET
+```
 Yaml config consists of several sections:
 
 - **main**: Which contains the main parameters of the tests.

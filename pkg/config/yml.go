@@ -8,6 +8,7 @@ import (
 	variable "github.com/mostafatalebi/loadtest/pkg/variables"
 	"io/ioutil"
 	"net/http"
+	"strings"
 )
 
 type YamlConfigHolder struct {
@@ -38,7 +39,7 @@ type YamlConfigTargets map[string]*YamlConfigSectionTarget
 type YamlConfigSectionTarget struct {
 	Assertions             map[string]string    `yaml:"assertions"`
 	Headers                map[string]string    `yaml:"headers"`
-	Method                 string               `yaml:"method"`
+	Method                 string               `yaml:"httpMethod"`
 	Url                    string               `yaml:"url"`
 	MaxTimeout             int                  `yaml:"max-timeout"`
 	EnabledLogs            bool                 `yaml:"enable-logs"`
@@ -124,7 +125,7 @@ func (c *ConfigYaml) mapYmlToConfig(targetName string, ymlConfig *YamlConfigSect
 	cc.NumberOfRequests = c.yamlConfig.Main.NumberOfRequests
 	cc.Concurrency = c.yamlConfig.Main.Concurrency
 	cc.FormBody = ymlConfig.FormBody
-	cc.Method = ymlConfig.Method
+	cc.Method = strings.ToUpper(ymlConfig.Method)
 	cc.Url = ymlConfig.Url
 	cc.TargetName = targetName
 	cc.MaxTimeout = ymlConfig.MaxTimeout

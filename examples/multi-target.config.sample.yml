@@ -45,6 +45,7 @@ data-source: # this is a url which gets called before a target(s) execution star
     headers:
       Origin: test.com
       Content-Type: text/html
+    httpMethod: GET
     max-timeout: 1
     refresh:
       type: ms # ms => time in ms
@@ -75,6 +76,7 @@ targets:
       Content-Type: text/html
       X-Sample-Token: token-$token
     formBody: ""
+    httpMethod: GET
     exec-duration-header-name: ""
     cache-usage-header-name: ""
     max-timeout: 1
@@ -90,5 +92,6 @@ targets:
       X-Password: $password
     assertions:
       body-string: "'firstName' : "
+    httpMethod: GET
     exec-duration-header-name: ""
     cache-usage-header-name: ""
