@@ -1,0 +1,36 @@
+# github.com/davecgh/go-spew v1.1.1
+github.com/davecgh/go-spew/spew
+# github.com/gavv/deepcopy v0.0.0-20160510082458-5dc2cad7a351
+## explicit
+github.com/gavv/deepcopy
+# github.com/go-yaml/yaml v2.1.0+incompatible
+## explicit
+github.com/go-yaml/yaml
+# github.com/gojektech/valkyrie v0.0.0-20180215180059-6aee720afcdf
+## explicit
+github.com/gojektech/valkyrie
+# github.com/mostafatalebi/dynamic-params v0.0.7
+## explicit
+github.com/mostafatalebi/dynamic-params
+# github.com/pmezard/go-difflib v1.0.0
+github.com/pmezard/go-difflib/difflib
+# github.com/rs/xid v1.2.1
+## explicit
+github.com/rs/xid
+# github.com/stretchr/testify v1.6.1
+## explicit
+github.com/stretchr/testify/assert
+# github.com/tidwall/gjson v1.6.1
+## explicit
+github.com/tidwall/gjson
+# github.com/tidwall/match v1.0.1
+github.com/tidwall/match
+# github.com/tidwall/pretty v1.0.2
+github.com/tidwall/pretty
+# go.uber.org/atomic v1.7.0
+## explicit
+go.uber.org/atomic
+# gopkg.in/yaml.v2 v2.3.0
+## explicit
+# gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
+gopkg.in/yaml.v3
