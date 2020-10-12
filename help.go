@@ -43,7 +43,8 @@ func UnderstandVersion(v string) string {
 }
 
 func PrintAuthorInformation() {
+	fmt.Println("Load48 :: Load Testing Utility")
 	fmt.Println("Author: Mostafa Talebi")
 	fmt.Println("Email: most.talebi@gmail.com")
-	fmt.Println("Github: http://github.com/mostafatalebi/loadtest")
+	fmt.Println("Github: http://github.com/mostafatalebi/load48")
 }

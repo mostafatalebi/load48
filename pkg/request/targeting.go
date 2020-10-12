@@ -107,6 +107,11 @@ func (t *Targeting) SequentialExecution(batch []*RequestWorker) {
 	t.StatsTotal = t.MergeTargetsStats()
 }
 
+// @todo not implemented
+func (t *Targeting) ParallelExecution(batch []*RequestWorker) {
+
+}
+
 // This is the same as SequentialExecution(), but is aimed toward
 // data-sources and does not change any global stat or does not
 // signal any global event.
