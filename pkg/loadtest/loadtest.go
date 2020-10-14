@@ -23,9 +23,9 @@ type LoadTest struct {
 }
 
 // each config means a new worker
-// for targeting policy, because it is a global config,
-// we use first config's targeting policy. This is because
-// all configs must have the same targeting policy
+// for strategy, because it is a global config,
+// we use first config's strategy. This is because
+// all configs must have the same strategy
 func NewLoadTest(configs ...*config.Config) *LoadTest {
 	var sessionName = xid.New().String()
 	if len(configs) == 0 {
@@ -33,7 +33,7 @@ func NewLoadTest(configs ...*config.Config) *LoadTest {
 	}
 	l := &LoadTest{
 		workers: make([]*request.RequestWorker, 0),
-		targeting: request.NewTargetManager(configs[0].TargetingPolicy, configs[0].Concurrency, configs[0].NumberOfRequests),
+		targeting: request.NewTargetManager(configs[0].Strategy, configs[0].Concurrency, configs[0].NumberOfRequests),
 	}
 
 	if configs[0].EnabledLogs != true {

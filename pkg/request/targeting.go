@@ -1,6 +1,7 @@
 package request
 
 import (
+	"github.com/mostafatalebi/loadtest/pkg/common"
 	"github.com/mostafatalebi/loadtest/pkg/curr"
 	"github.com/mostafatalebi/loadtest/pkg/logger"
 	"github.com/mostafatalebi/loadtest/pkg/stats"
@@ -12,9 +13,9 @@ import (
 )
 
 const (
-	PolicySeq        = "seq"
-	PolicyRoundRobin = "round-robin"
-	PolicyParallel   = "parallel"
+	StrategySeq        = "seq"
+	StrategyRoundRobin = "round-robin"
+	StrategyParallel   = "parallel"
 
 	ExecWorker = "w"
 	ExecDataSource = "ds"
@@ -25,7 +26,7 @@ type TargetFunc func(variables variable.VariableMap)
 var TargetAll = "all target"
 
 type Targeting struct {
-	policy                string
+	strategy              string
 	concurrency           int64
 	numOfRequests         int64
 	DataSources           []*RequestWorker
@@ -45,7 +46,7 @@ type Targeting struct {
 
 func NewTargetManager(tp string, cc, rc int64) *Targeting {
 	t := &Targeting{
-		policy:                tp,
+		strategy:              tp,
 		concurrency:           cc,
 		numOfRequests:         rc,
 		LockConcurrencyStat:   &sync.Mutex{},
@@ -53,9 +54,8 @@ func NewTargetManager(tp string, cc, rc int64) *Targeting {
 		requestCounter:        make(chan int64, cc),
 		eventRequestAttempted: make(chan int8),
 		eventCCChanged:        make(chan int64),
-		progress:              progress.NewProgressIndicator(rc),
 	}
-	go t.progress.ListenToChannel(t.eventRequestAttempted)
+
 	return t
 }
 
@@ -71,7 +71,17 @@ func (t *Targeting) Run(execType string) {
 	if execType == ExecWorker {
 		logger.InfoOut("running targets...", "")
 		if t.IsSequential() {
+			t.progress = progress.NewProgressIndicator(t.numOfRequests)
+			go t.progress.ListenToChannel(t.eventRequestAttempted)
 			t.SequentialExecution(t.Workers)
+		} else if t.IsParallel() {
+			t.progress = progress.NewProgressIndicator(t.numOfRequests*int64(len(t.Workers)))
+			go t.progress.ListenToChannel(t.eventRequestAttempted)
+			t.ParallelExecution(t.Workers)
+		} else if t.IsRoundRobin() {
+			t.progress = progress.NewProgressIndicator(t.numOfRequests)
+			go t.progress.ListenToChannel(t.eventRequestAttempted)
+			t.RoundRobinExecution(t.Workers)
 		}
 	} else if execType == ExecDataSource {
 		if t.DataSources != nil {
@@ -109,8 +119,51 @@ func (t *Targeting) SequentialExecution(batch []*RequestWorker) {
 
 // @todo not implemented
 func (t *Targeting) ParallelExecution(batch []*RequestWorker) {
-
+	wg := &sync.WaitGroup{}
+	workersLen := len(batch)
+	for i := 0; i < workersLen; i++ {
+		for j := int64(0); j < t.numOfRequests; j++ {
+			var currentWorker = batch[i]
+			t.requestCounter <- int64(1)
+			wg.Add(1)
+			go func(worker *RequestWorker) {
+				var err error
+				defer func() { <-t.requestCounter }()
+				defer wg.Done()
+				t.eventRequestAttempted <- 1
+				_, err = worker.DoSingle(t.Variables)
+				if err != nil {
+					logger.Error("sending single request in parallel mode failed", err.Error())
+				}
+			}(currentWorker)
+		}
+	}
+	wg.Wait()
 }
+
+func (t *Targeting) RoundRobinExecution(batch []*RequestWorker) {
+	wg := &sync.WaitGroup{}
+	var rrIndex = 0
+	var workersLen = len(batch)
+	for j := int64(0); j < t.numOfRequests; j++ {
+		var currentWorker = batch[rrIndex]
+		rrIndex = common.GetRandInt(0, workersLen, rrIndex)
+		t.requestCounter <- int64(1)
+		wg.Add(1)
+		go func(worker *RequestWorker) {
+			var err error
+			defer func() { <-t.requestCounter }()
+			defer wg.Done()
+			t.eventRequestAttempted <- 1
+			_, err = worker.DoSingle(t.Variables)
+			if err != nil {
+				logger.Error("sending single request in parallel mode failed", err.Error())
+			}
+		}(currentWorker)
+	}
+	wg.Wait()
+}
+
 
 // This is the same as SequentialExecution(), but is aimed toward
 // data-sources and does not change any global stat or does not
@@ -174,17 +227,17 @@ func (t *Targeting) createRecursion(w []*RequestWorker, index int) TargetFunc {
 
 // @todo Not Implemented
 func (t *Targeting) IsParallel() bool {
-	return t.policy == PolicyParallel
+	return t.strategy == StrategyParallel
 }
 
 
 func (t *Targeting) IsSequential() bool {
-	return t.policy == PolicySeq
+	return t.strategy == StrategySeq
 }
 
 // @todo Not Implemented
 func (t *Targeting) IsRoundRobin() bool {
-	return t.policy == PolicyRoundRobin
+	return t.strategy == StrategyRoundRobin
 }
 
 func (t *Targeting) MergeTargetsStats() *stats.StatsCollector {

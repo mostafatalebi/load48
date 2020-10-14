@@ -21,7 +21,7 @@ type YamlConfigHolder struct {
 type YamlConfigSectionMain struct {
 	Concurrency      int64  `yaml:"concurrency"`
 	NumberOfRequests int64  `yaml:"request-count"`
-	TargetingPolicy  string `yaml:"targeting-policy"`
+	Strategy         string `yaml:"strategy"`
 }
 
 type YamlConfigRefresh struct {
@@ -48,7 +48,7 @@ type YamlConfigSectionTarget struct {
 	ExecDurationHeaderName string               `yaml:"exec-duration-header-name"`
 	CacheUsageHeaderName   string               `yaml:"cache-usage-header-name"`
 	Variables              variable.VariableMap `yaml:"variables"`
-	TargetingPolicy        string               `yaml:"-"`
+	Strategy               string               `yaml:"-"`
 	Refresh                *YamlConfigRefresh   `yaml:"refresh"`
 }
 
@@ -135,7 +135,7 @@ func (c *ConfigYaml) mapYmlToConfig(targetName string, ymlConfig *YamlConfigSect
 	}
 	cc.ExecDurationHeaderName = ymlConfig.ExecDurationHeaderName
 	cc.CacheUsageHeaderName = ymlConfig.CacheUsageHeaderName
-	cc.TargetingPolicy = c.yamlConfig.Main.TargetingPolicy
+	cc.Strategy = c.yamlConfig.Main.Strategy
 	return cc, nil
 }
 

@@ -36,7 +36,7 @@ type Config struct {
 	ExecDurationHeaderName string
 	CacheUsageHeaderName   string
 	VariablesMap           variable.VariableMap
-	TargetingPolicy string `yaml:"-"`
+	Strategy               string `yaml:"-"`
 }
 
 

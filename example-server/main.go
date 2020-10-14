@@ -14,15 +14,15 @@ func main() {
 		log.Fatal(err)
 	}
 	mx := http.DefaultServeMux
-	mx.HandleFunc("/getDataSource", func(writer http.ResponseWriter, request *http.Request) {
+	mx.HandleFunc("/multi/getDataSource", func(writer http.ResponseWriter, request *http.Request) {
 		writer.WriteHeader(200)
 		writer.Write([]byte(`{ "data" : {"token" : "someSampleValue"}}`))
 	})
-	mx.HandleFunc("/login", func(writer http.ResponseWriter, request *http.Request) {
+	mx.HandleFunc("/multi/login", func(writer http.ResponseWriter, request *http.Request) {
 		writer.WriteHeader(200)
 		writer.Write([]byte(`{ "data" : {"username" : "bob", "password" : "123456"}}`))
 	})
-	mx.HandleFunc("/getUser", func(writer http.ResponseWriter, request *http.Request) {
+	mx.HandleFunc("/multi/getUser", func(writer http.ResponseWriter, request *http.Request) {
 		if request.URL.Query().Get("user") == "bob" && request.Header.Get("X-Password") == "123456"{
 			writer.WriteHeader(200)
 			writer.Write([]byte(`{
@@ -39,7 +39,7 @@ func main() {
 		}
 
 	})
-	mx.HandleFunc("/verifyToken", func(writer http.ResponseWriter, request *http.Request) {
+	mx.HandleFunc("/multi/verifyToken", func(writer http.ResponseWriter, request *http.Request) {
 		if request.Header.Get("X-Sample-Token") == "token-someSampleValue" {
 			writer.WriteHeader(200)
 			writer.Header().Set("X-Token-Verify", "true")

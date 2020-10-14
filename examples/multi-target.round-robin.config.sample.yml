@@ -1,12 +1,10 @@
 # This config file is for testing multiple targets.
-# Execution pattern is set to sequential, which means
-# a targets gets executed, and then it executes the next target, and so on until
-# the last target is executed. Each target might define variables and pass it to
-# the next target.
-#
-# If any data-source is defined, it gets executed first and then targets execution beings,
-# and all target receive any variable defined by data source (along with previous targets
-# possible variables).
+# Execution pattern is set to round-robin, which means
+# all targets get executed, and the pattern is round-robin
+# Note: when using round-robin, the number of request is divided
+# between all targets. If you have two targets and then you set
+# the number of requests (main.request-count) to 100, each of them will probably
+# get 50 requests.
 #
 # In this config, also assertions are used. For the list of available assertions please
 # see the documentation. If an assertion fails it will be considered as Other Errors, we
@@ -15,15 +13,17 @@
 # Also, there is a logs section which enables logging and sets a directory for it. By default,
 # logging is turned off, unless specified in the config file, like this example.
 #
-# Targets in this config use variables defined in the data-source and targets, take a look
-# at getUser target and you see inside the URL there is a variable $user which gets the value
-# received from previous target (login). login itself uses a variable from data-source, and
-# uses it in its header section.
+# Targets in this config use variables defined in the data-source. Targets themselves
+# can also define variables for their own responses, but they are of no use. Because targets
+# get executed in parallel and they cannot exchange variables. If you need any variable, define
+# them in data-source section or use seq for main.strategy (see multi-target.seq.config.sample.yml file and read its
+# comment).
+#
 #
 main:
-  request-count: 10000000
+  request-count: 1000
   concurrency: 100
-  targeting-policy: "seq"  # values are: seq, parallel, round-robin
+  strategy: "round-robin"  # values are: seq, parallel, round-robin
 
 logs:
   enable: true
@@ -56,21 +56,6 @@ targets:
   # if you define multiple targets, they get exec
   login:
     url: http://127.0.0.1:3001/login # the URL to which
-    variables: # This field allows you to define variables returned by the target's response,
-               # and can be used by other targets. It supports only responses in JSON format.
-               # NOTE: this field is usable by other targets only if the targeting policy
-               # is set to 'seq'. Because using variables is meaningful and
-               # and non-buggy only if they are ready before the next target rolls in for execution
-               #
-               # Variable names are global and they override if any previous name is
-               # defined in a previous target or data-source.
-
-      $username: # a variable name MUST start with $
-        type: string #possible types are: string, int, array and object
-        path: data.username
-      $password:
-        type: string
-        path: data.password
     headers:
       Origin: test.com
       Content-Type: text/html
@@ -81,7 +66,7 @@ targets:
     cache-usage-header-name: ""
     max-timeout: 1
   getUser:
-    url: http://127.0.0.1:3001/getUser?user=$username # we can use any defined variable in previous target
+    url: http://127.0.0.1:3001/getUser?user=bob
     variables:
       $name:
         type: array

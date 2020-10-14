@@ -1,0 +1,82 @@
+# This config file is for testing multiple targets.
+# Execution pattern is set to parallel, which means
+# all targets get executed simultaneously, of course, with
+# maintaining the concurrency value defined in main.concurrency field.
+# Note: Specified number of requests (main.request-count) is given to each
+# target; if you have two targets and 100 request-count, each target will be tried
+# 100 times.
+#
+# In this config, also assertions are used. For the list of available assertions please
+# see the documentation. If an assertion fails it will be considered as Other Errors, we
+# will implement assertions' specific errors and stats for more verbose result, in near future.
+#
+# Also, there is a logs section which enables logging and sets a directory for it. By default,
+# logging is turned off, unless specified in the config file, like this example.
+#
+# Targets in this config use variables defined in the data-source. Targets themselves
+# can also define variables for their own responses, but they are of no use. Because targets
+# get executed in parallel and they cannot exchange variables. If you need any variable, define
+# them in data-source section or use seq for main.strategy (see multi-target.seq.config.sample.yml file and read its
+# comment).
+#
+#
+main:
+  request-count: 1000
+  concurrency: 100
+  strategy: "parallel"  # values are: seq, parallel, round-robin
+
+logs:
+  enable: true
+  dir: ./logs
+
+data-source: # this is a url which gets called before a target(s) execution start(s), and
+             # allows you to define variables for all your targets, regardless of per-target
+             # variable definitions. For example, if your targets need an access token to be
+             # included in the header, you can define login as a data-source, define any variable
+             # from response, and then use them in targets' url, body, header or assertions.
+             # Or if you have define a test-specific endpoint in your server and needs to be called
+             # before each test, you can define it here
+  getToken:
+    url: http://127.0.0.1:3001/getDataSource
+    variables:
+      $token:
+        type: string
+        path: data.token
+    headers:
+      Origin: test.com
+      Content-Type: text/html
+    httpMethod: GET
+    max-timeout: 1
+    refresh:
+      type: ms # ms => time in ms
+               # sec => time in sec
+      value: 20
+
+targets:
+  # if you define multiple targets, they get exec
+  login:
+    url: http://127.0.0.1:3001/login # the URL to which
+    headers:
+      Origin: test.com
+      Content-Type: text/html
+      X-Sample-Token: token-$token
+    formBody: ""
+    httpMethod: GET
+    exec-duration-header-name: ""
+    cache-usage-header-name: ""
+    max-timeout: 1
+  getUser:
+    url: http://127.0.0.1:3001/getUser?user=bob
+    variables:
+      $name:
+        type: array
+        path: data.name
+    headers:
+      Origin: test.com
+      Content-Type: text/html
+      X-Password: $password
+    assertions:
+      body-string: "'firstName' : "
+    httpMethod: GET
+    exec-duration-header-name: ""
+    cache-usage-header-name: ""

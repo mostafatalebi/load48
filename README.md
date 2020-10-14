@@ -81,6 +81,12 @@ product.
 `main` `concurrency` **int**  Number of concurrent requests, this number cannot be greater
 than request-count.
 
+`main` `strategy` **string** How to send request: `seq` for sequential, `parallel` for parallel
+execution and `round-robin` for a balanced shared of requests for each target.
+These values are meaningful only if you have more than one target, otherwise a simple
+sequential execution will be used no matter what is the value of strategy. You can
+read comments inside sample config files for more explanations.
+
 `logs` `enabled` **bool** Enable error logging.
 
 `logs` `dir` **string** Directory in which error log file is saved. Must have permission,

@@ -168,6 +168,56 @@ func (r *RequestWorker) DoInChain(variables variable.VariableMap, next TargetFun
 	return variables, nil
 }
 
+// DoSingle executes a single request, it does not handle any next() handler calling
+func (r *RequestWorker) DoSingle(variables variable.VariableMap) (variable.VariableMap, error) {
+	defer r.UpdateConcurrentReqNum(-1)
+	r.UpdateConcurrentReqNum(1)
+	r.GetStat(r.workerId).IncrSuccess(0)
+
+	var urlStr = r.Config.Url
+	var formBody = r.Config.FormBody
+	var headers = make(http.Header, 0)
+	if r.Config.Headers != nil {
+		for k, v :=  range r.Config.Headers {
+			headers[k] = v
+		}
+	}
+
+	if variables != nil {
+		urlStr = variable.ReplaceVariables(variables, urlStr)
+		formBody = variable.ReplaceVariables(variables, formBody)
+
+		if r.Config.Headers != nil {
+			for k, _ := range headers {
+				hv := variable.ReplaceVariables(variables, headers.Get(k))
+				headers.Set(k, hv)
+			}
+		}
+	}
+	var bt = []byte(formBody)
+	bd := bytes.NewBuffer(bt)
+
+	req, err := http.NewRequest(r.Config.Method, urlStr, bd)
+	if err != nil {
+		logger.Error("creating request object failed", err.Error())
+		return nil, nil
+	}
+	req.Header = headers
+	variablesAnalyzed := &variable.VariableAnalysis{}
+	bodyResponse, err := r.sendRequest(req, time.Second*time.Duration(r.Config.MaxTimeout))
+	if r.Config.VariablesMap != nil {
+		variablesAnalyzed, err = variable.NewVariableAnalysis(r.Config.VariablesMap, string(bodyResponse), "json")
+		if err != nil {
+			variablesAnalyzed = nil
+		}
+		if variablesAnalyzed != nil {
+			var newVariables = variablesAnalyzed.Extract()
+			variables = variable.Merge(variables, newVariables)
+		}
+	}
+	return variables, nil
+}
+
 func (r *RequestWorker) sendRequest(req *http.Request, tout time.Duration) ([]byte, error) {
 	tn := time.Now()
 	resp, err := GetHttpClient(tout).Do(req)
